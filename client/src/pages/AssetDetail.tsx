@@ -294,23 +294,58 @@ export default function AssetDetail() {
               {(!asset.maintenanceRequests || asset.maintenanceRequests.length === 0) ? (
                 <div className="text-center py-10 text-slate-400 text-sm">Thiết bị chưa có yêu cầu sửa chữa nào.</div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {asset.maintenanceRequests.map((m: any) => (
-                    <div key={m.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div key={m.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
                       <div className="flex items-start justify-between">
                         <div>
                           <div className="font-bold text-sm text-slate-900">{m.issueDescription}</div>
-                          <div className="text-xs text-slate-500 mt-1">
-                            Người đề nghị: <strong className="text-slate-700">{m.requestedBy}</strong> • Ngày báo: {new Date(m.requestDate).toLocaleDateString('vi-VN')}
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1">
+                            <span>Người đề nghị: <strong className="text-slate-800">{m.requestedBy}</strong> {m.contactPhone ? `(${m.contactPhone})` : ''}</span>
+                            <span>•</span>
+                            <span>Ngày báo: <strong>{new Date(m.requestDate).toLocaleDateString('vi-VN')}</strong></span>
+                            {m.managingUnit && (
+                              <>
+                                <span>•</span>
+                                <span>Đơn vị nhận: <strong className="text-blue-700">{m.managingUnit === 'DUOC' ? 'Khoa Dược' : m.managingUnit === 'CNTT' ? 'Tổ CNTT' : 'Phòng TCHC'}</strong></span>
+                              </>
+                            )}
                           </div>
                         </div>
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                          {m.status}
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                          m.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
+                          m.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                          m.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          {m.status === 'COMPLETED' ? 'Đã hoàn thành' :
+                           m.status === 'IN_PROGRESS' ? 'Đang xử lý' :
+                           m.status === 'REJECTED' ? 'Từ chối' : 'Chờ tiếp nhận'}
                         </span>
                       </div>
-                      {m.repairNote && (
-                        <div className="mt-2 text-xs text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200">
-                          Ghi chú sửa chữa: {m.repairNote} (Chi phí: {m.repairCost ? Number(m.repairCost).toLocaleString('vi-VN') + ' đ' : '0 đ'})
+
+                      {/* Processing Details */}
+                      {(m.technicianName || m.repairNote || m.repairCost || m.repairVendor) && (
+                        <div className="bg-white p-3.5 rounded-xl border border-slate-200 text-xs space-y-1.5 text-slate-700">
+                          {m.technicianName && (
+                            <div><strong>Cán bộ kỹ thuật xử lý:</strong> <span className="font-semibold text-slate-900">{m.technicianName}</span></div>
+                          )}
+                          {m.repairVendor && (
+                            <div><strong>Đơn vị / Nhà cung cấp sửa:</strong> {m.repairVendor}</div>
+                          )}
+                          {m.repairCost ? (
+                            <div><strong>Kinh phí sửa chữa:</strong> <span className="font-bold text-purple-700 font-mono">{Number(m.repairCost).toLocaleString('vi-VN')} đ</span></div>
+                          ) : null}
+                          {m.repairNote && (
+                            <div className="text-slate-800 bg-slate-50 p-2 rounded-lg mt-1">
+                              <strong>Nội dung xử lý:</strong> {m.repairNote}
+                            </div>
+                          )}
+                          {m.completedDate && (
+                            <div className="text-[11px] text-emerald-700 font-medium pt-1">
+                              ✓ Nghiệm thu hoàn thành ngày: {new Date(m.completedDate).toLocaleDateString('vi-VN')}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -95,14 +95,18 @@ export interface MaintenanceRequest {
   assetId: number;
   asset?: Asset;
   requestedBy: string; // Tên người đề nghị
+  contactPhone?: string; // Số điện thoại liên hệ
   departmentId: number;
   department?: Department;
+  managingUnit?: 'DUOC' | 'CNTT' | 'TCHC' | string;
+  locationDetail?: string; // Vị trí phòng máy cụ thể
   issueDescription: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED';
   repairCost?: number;
   repairVendor?: string;
   repairNote?: string;
+  technicianName?: string; // Tên cán bộ kỹ thuật tiếp nhận / xử lý
   requestDate: string;
   completedDate?: string;
 }

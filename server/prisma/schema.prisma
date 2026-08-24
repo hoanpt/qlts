@@ -115,14 +115,18 @@ model MaintenanceRequest {
   assetId          Int
   asset            Asset     @relation(fields: [assetId], references: [id])
   requestedBy      String    // Tên người đề nghị
+  contactPhone     String?   // Số điện thoại liên hệ
   departmentId     Int
   department       Department @relation(fields: [departmentId], references: [id])
+  managingUnit     String?   // DUOC, CNTT, TCHC
+  locationDetail   String?   // Vị trí phòng máy cụ thể
   issueDescription String
   priority         String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
   status           String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, REJECTED
   repairCost       Float?
   repairVendor     String?
   repairNote       String?
+  technicianName   String?   // Tên cán bộ kỹ thuật tiếp nhận / xử lý
   requestDate      DateTime  @default(now())
   completedDate    DateTime?
   createdAt        DateTime  @default(now())
