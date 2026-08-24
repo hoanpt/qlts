@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  password     String
+  fullName     String
+  role         String    @default("DEPARTMENT") // ADMIN, DEPARTMENT
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Department {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  location    String   @default("Cơ sở 1") // "Cơ sở 1" or "Cơ sở 2"
+  description String?
+  users       User[]
+  assets      Asset[]
+  transfersFrom AssetTransfer[] @relation("FromDepartment")
+  transfersTo   AssetTransfer[] @relation("ToDepartment")
+  maintenanceRequests MaintenanceRequest[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AssetCategory {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  assets      Asset[]
+}
+
+model Asset {
+  id                Int       @id @default(autoincrement())
+  assetCode         String    @unique
+  name              String
+  categoryId        Int
+  category          AssetCategory @relation(fields: [categoryId], references: [id])
+  departmentId      Int
+  department        Department @relation(fields: [departmentId], references: [id])
+  location          String?   // Cơ sở 1 or Cơ sở 2
+  locationDetail    String?   // Phòng cụ thể
+  assignedTo        String?   // Người sử dụng
+  yearInUse         Int?      // Năm đưa vào sử dụng
+  originalPrice     Float?    // Nguyên giá
+  currentValue      Float?    // Giá trị còn lại
+  depreciationRate  Float?    // Tỷ lệ hao mòn %
+  manufacturer      String?   // Hãng sản xuất
+  countryOfOrigin   String?   // Nước sản xuất
+  specifications    String?   // Cấu hình / thông số kỹ thuật
+  status            String    @default("DANG_SU_DUNG") // DANG_SU_DUNG, HONG, KHONG_SU_DUNG, CHO_THANH_LY, DA_THANH_LY, BAO_TRI, CHO_PHAN_BO
+  managingUnit      String?   @default("TCHC") // TCHC, DUOC, CNTT
+  floor             String?   // Tầng Hầm, Tầng 1 .. Tầng 7
+  buildingAsset     Int?      @default(0) // 1 if building infrastructure asset, 0 otherwise
+  bookQuantity      Int       @default(1)
+  actualQuantity    Int       @default(1)
+  quantityDifference Int      @default(0)
+  source            String?   // Nguồn gốc: Ngân sách, Viện trợ, Mua mới...
+  note              String?
+  qrCode            String?   @unique
+  transfers         AssetTransfer[]
+  maintenanceRequests MaintenanceRequest[]
+  inventoryRecords  InventoryRecord[]
+  disposals         Disposal[]
+  depreciations     Depreciation[]
+  calibrations      CalibrationRecord[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model InventoryCommitteeMember {
+  id           Int       @id @default(autoincrement())
+  fullName     String
+  position     String
+  role         String
+  departmentId Int?
+  scope        String?   @default("ALL")
+  isActive     Int?      @default(1)
+  displayOrder Int?      @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model AssetTransfer {
+  id               Int       @id @default(autoincrement())
+  assetId          Int
+  asset            Asset     @relation(fields: [assetId], references: [id])
+  fromDepartmentId Int
+  fromDepartment   Department @relation("FromDepartment", fields: [fromDepartmentId], references: [id])
+  toDepartmentId   Int
+  toDepartment     Department @relation("ToDepartment", fields: [toDepartmentId], references: [id])
+  transferDate     DateTime  @default(now())
+  reason           String?
+  approvedBy       String?
+  note             String?
+  status           String    @default("PENDING") // PENDING, APPROVED, REJECTED, COMPLETED
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model MaintenanceRequest {
+  id               Int       @id @default(autoincrement())
+  assetId          Int
+  asset            Asset     @relation(fields: [assetId], references: [id])
+  requestedBy      String    // Tên người đề nghị
+  departmentId     Int
+  department       Department @relation(fields: [departmentId], references: [id])
+  issueDescription String
+  priority         String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status           String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, REJECTED
+  repairCost       Float?
+  repairVendor     String?
+  repairNote       String?
+  requestDate      DateTime  @default(now())
+  completedDate    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model InventorySession {
+  id          Int       @id @default(autoincrement())
+  name        String
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  status      String    @default("OPEN") // OPEN, IN_PROGRESS, COMPLETED
+  createdBy   String?
+  records     InventoryRecord[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model InventoryRecord {
+  id             Int       @id @default(autoincrement())
+  sessionId      Int
+  session        InventorySession @relation(fields: [sessionId], references: [id])
+  assetId        Int
+  asset          Asset     @relation(fields: [assetId], references: [id])
+  bookQuantity   Int
+  actualQuantity Int
+  difference     Int
+  condition      String?   // Tình trạng thực tế
+  note           String?
+  checkedBy      String?
+  checkedDate    DateTime  @default(now())
+}
+
+model Disposal {
+  id             Int       @id @default(autoincrement())
+  assetId        Int
+  asset          Asset     @relation(fields: [assetId], references: [id])
+  proposedDate   DateTime  @default(now())
+  disposalDate   DateTime?
+  reason         String
+  proposedBy     String?
+  approvedBy     String?
+  approvalDate   DateTime?
+  disposalPrice  Float?
+  status         String    @default("PROPOSED") // PROPOSED, APPROVED, COMPLETED, REJECTED
+  note           String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Depreciation {
+  id                      Int       @id @default(autoincrement())
+  assetId                 Int
+  asset                   Asset     @relation(fields: [assetId], references: [id])
+  year                    Int
+  depreciationAmount      Float
+  accumulatedDepreciation Float
+  remainingValue          Float
+  calculatedDate          DateTime  @default(now())
+}
+
+model CalibrationRecord {
+  id                  Int       @id @default(autoincrement())
+  assetId             Int
+  asset               Asset     @relation(fields: [assetId], references: [id])
+  calibrationDate     DateTime
+  nextCalibrationDate DateTime?
+  performedBy         String?
+  vendor              String?
+  result              String    @default("PASS") // PASS, FAIL, CONDITIONAL
+  certificateNumber   String?
+  note                String?
+  createdAt           DateTime  @default(now())
+}
