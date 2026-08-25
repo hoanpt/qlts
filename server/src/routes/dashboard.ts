@@ -7,33 +7,59 @@ const prisma = new PrismaClient();
 
 router.get('/stats', requireAuth, async (req: any, res) => {
   try {
-    const totalAssets = await prisma.asset.count();
-    const dangSuDung = await prisma.asset.count({ where: { status: 'DANG_SU_DUNG' } });
-    const hong = await prisma.asset.count({ where: { status: 'HONG' } });
-    const baoTri = await prisma.asset.count({ where: { status: 'BAO_TRI' } });
-    const choPhanBo = await prisma.asset.count({ where: { status: 'CHO_PHAN_BO' } });
-    const choThanhLy = await prisma.asset.count({ where: { status: 'CHO_THANH_LY' } });
-    const daThanhLy = await prisma.asset.count({ where: { status: 'DA_THANH_LY' } });
-    const khongSuDung = await prisma.asset.count({ where: { status: 'KHONG_SU_DUNG' } });
+    const baseWhere: any = {};
+    if (req.user) {
+      if (req.user.role === 'MANAGER_CNTT') {
+        baseWhere.managingUnit = 'CNTT';
+      } else if (req.user.role === 'MANAGER_DUOC') {
+        baseWhere.managingUnit = 'DUOC';
+      } else if (req.user.role === 'MANAGER_TCHC') {
+        baseWhere.managingUnit = 'TCHC';
+      } else if (req.user.role === 'DEPARTMENT' && req.user.departmentId) {
+        baseWhere.departmentId = req.user.departmentId;
+      }
+    }
+
+    const totalAssets = await prisma.asset.count({ where: baseWhere });
+    const dangSuDung = await prisma.asset.count({ where: { ...baseWhere, status: 'DANG_SU_DUNG' } });
+    const hong = await prisma.asset.count({ where: { ...baseWhere, status: 'HONG' } });
+    const baoTri = await prisma.asset.count({ where: { ...baseWhere, status: 'BAO_TRI' } });
+    const choPhanBo = await prisma.asset.count({ where: { ...baseWhere, status: 'CHO_PHAN_BO' } });
+    const choThanhLy = await prisma.asset.count({ where: { ...baseWhere, status: 'CHO_THANH_LY' } });
+    const daThanhLy = await prisma.asset.count({ where: { ...baseWhere, status: 'DA_THANH_LY' } });
+    const khongSuDung = await prisma.asset.count({ where: { ...baseWhere, status: 'KHONG_SU_DUNG' } });
     
     // Sum prices
-    const assets = await prisma.asset.findMany({ select: { originalPrice: true, currentValue: true } });
+    const assets = await prisma.asset.findMany({ where: baseWhere, select: { originalPrice: true, currentValue: true } });
     const totalValue = assets.reduce((sum, a) => sum + (a.originalPrice || 0), 0);
 
     // Counts by 3 Managing Units
-    const tchcTotal = await prisma.asset.count({ where: { managingUnit: 'TCHC' } });
-    const tchcToanha = await prisma.asset.count({ where: { managingUnit: 'TCHC', buildingAsset: 1 } });
-    const tchcHanhchinh = await prisma.asset.count({ where: { managingUnit: 'TCHC', buildingAsset: 0 } });
-    const duocTotal = await prisma.asset.count({ where: { managingUnit: 'DUOC' } });
-    const cnttTotal = await prisma.asset.count({ where: { managingUnit: 'CNTT' } });
+    const tchcTotal = await prisma.asset.count({ where: { ...baseWhere, managingUnit: 'TCHC' } });
+    const tchcToanha = await prisma.asset.count({ where: { ...baseWhere, managingUnit: 'TCHC', buildingAsset: 1 } });
+    const tchcHanhchinh = await prisma.asset.count({ where: { ...baseWhere, managingUnit: 'TCHC', buildingAsset: 0 } });
+    const duocTotal = await prisma.asset.count({ where: { ...baseWhere, managingUnit: 'DUOC' } });
+    const cnttTotal = await prisma.asset.count({ where: { ...baseWhere, managingUnit: 'CNTT' } });
 
     // Subcategory statistics for badges matching user image:
-    const pcCount = await prisma.asset.count({ where: { OR: [{ name: { contains: 'máy tính' } }, { name: { contains: 'PC' } }, { name: { contains: 'vi tính' } }, { name: { contains: 'FPT' } }] } });
-    const laptopCount = await prisma.asset.count({ where: { OR: [{ name: { contains: 'laptop' } }, { name: { contains: 'Dell' } }, { name: { contains: 'HP' } }, { name: { contains: 'notebook' } }] } });
-    const mayInCount = await prisma.asset.count({ where: { OR: [{ name: { contains: 'máy in' } }, { name: { contains: 'canon' } }, { name: { contains: 'printer' } }] } });
-    const networkCount = await prisma.asset.count({ where: { OR: [{ name: { contains: 'mạng' } }, { name: { contains: 'switch' } }, { name: { contains: 'router' } }, { name: { contains: 'wifi' } }] } });
-    const phuKienCount = await prisma.asset.count({ where: { OR: [{ name: { contains: 'chuột' } }, { name: { contains: 'bàn phím' } }, { name: { contains: 'dây' } }, { name: { contains: 'ổ cứng' } }] } });
-    const manHinhCount = await prisma.asset.count({ where: { OR: [{ name: { contains: 'màn hình' } }, { name: { contains: 'monitor' } }] } });
+    const pcCount = await prisma.asset.count({ where: { ...baseWhere, OR: [{ name: { contains: 'máy tính' } }, { name: { contains: 'PC' } }, { name: { contains: 'vi tính' } }, { name: { contains: 'FPT' } }] } });
+    const laptopCount = await prisma.asset.count({ where: { ...baseWhere, OR: [{ name: { contains: 'laptop' } }, { name: { contains: 'Dell' } }, { name: { contains: 'HP' } }, { name: { contains: 'notebook' } }] } });
+    const mayInCount = await prisma.asset.count({ where: { ...baseWhere, OR: [{ name: { contains: 'máy in' } }, { name: { contains: 'canon' } }, { name: { contains: 'printer' } }] } });
+    const networkCount = await prisma.asset.count({ where: { ...baseWhere, OR: [{ name: { contains: 'mạng' } }, { name: { contains: 'switch' } }, { name: { contains: 'router' } }, { name: { contains: 'wifi' } }] } });
+
+    const badges: any[] = [];
+    if (!req.user || req.user.role === 'ADMIN') {
+      badges.push(
+        { name: 'Khối TBYT (Khoa Dược)', count: duocTotal, percent: totalAssets ? Math.round((duocTotal / totalAssets) * 100) : 0, key: 'DUOC' },
+        { name: 'Khối CNTT', count: cnttTotal, percent: totalAssets ? Math.round((cnttTotal / totalAssets) * 100) : 0, key: 'CNTT' },
+        { name: 'TCHC (Thiết bị hành chính)', count: tchcHanhchinh, percent: totalAssets ? Math.round((tchcHanhchinh / totalAssets) * 100) : 0, key: 'TCHC_HC' },
+        { name: 'TCHC (Hạ tầng tòa nhà các tầng)', count: tchcToanha, percent: totalAssets ? Math.round((tchcToanha / totalAssets) * 100) : 0, key: 'TCHC_TOANHA' }
+      );
+    }
+    badges.push(
+      { name: 'PC / Máy để bàn', count: pcCount, percent: totalAssets ? Math.round((pcCount / totalAssets) * 100) : 0 },
+      { name: 'Laptop', count: laptopCount, percent: totalAssets ? Math.round((laptopCount / totalAssets) * 100) : 0 },
+      { name: 'Máy in / Scan', count: mayInCount, percent: totalAssets ? Math.round((mayInCount / totalAssets) * 100) : 0 }
+    );
 
     res.json({
       totalAssets,
@@ -50,15 +76,7 @@ router.get('/stats', requireAuth, async (req: any, res) => {
         duoc: { total: duocTotal },
         cntt: { total: cnttTotal }
       },
-      badges: [
-        { name: 'Khối TBYT (Khoa Dược)', count: duocTotal, percent: totalAssets ? Math.round((duocTotal / totalAssets) * 100) : 0, key: 'DUOC' },
-        { name: 'Khối CNTT', count: cnttTotal, percent: totalAssets ? Math.round((cnttTotal / totalAssets) * 100) : 0, key: 'CNTT' },
-        { name: 'TCHC (Thiết bị hành chính)', count: tchcHanhchinh, percent: totalAssets ? Math.round((tchcHanhchinh / totalAssets) * 100) : 0, key: 'TCHC_HC' },
-        { name: 'TCHC (Hạ tầng tòa nhà các tầng)', count: tchcToanha, percent: totalAssets ? Math.round((tchcToanha / totalAssets) * 100) : 0, key: 'TCHC_TOANHA' },
-        { name: 'PC / Máy để bàn', count: pcCount, percent: totalAssets ? Math.round((pcCount / totalAssets) * 100) : 0 },
-        { name: 'Laptop', count: laptopCount, percent: totalAssets ? Math.round((laptopCount / totalAssets) * 100) : 0 },
-        { name: 'Máy in / Scan', count: mayInCount, percent: totalAssets ? Math.round((mayInCount / totalAssets) * 100) : 0 },
-      ]
+      badges
     });
   } catch (error) {
     console.error('Dashboard stats error:', error);

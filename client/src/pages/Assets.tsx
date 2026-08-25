@@ -6,10 +6,12 @@ import {
 } from 'lucide-react';
 import { STATUS_LABELS, STATUS_COLORS, Asset, Department, AssetCategory } from '../types';
 import { apiGet, apiDelete } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const FLOORS = ['Tất cả tầng', 'Tầng Hầm', 'Tầng 1', 'Tầng 2', 'Tầng 3', 'Tầng 4', 'Tầng 5', 'Tầng 6', 'Tầng 7'];
 
 export default function Assets() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -17,8 +19,14 @@ export default function Assets() {
   const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Default active division tab by role
+  const defaultTabByRole = 
+    user?.role === 'MANAGER_CNTT' ? 'CNTT' :
+    user?.role === 'MANAGER_DUOC' ? 'DUOC' :
+    user?.role === 'MANAGER_TCHC' ? 'TCHC_HC' : 'ALL';
+
   // Active division filter: 'ALL', 'DUOC', 'CNTT', 'TCHC_HC', 'TCHC_TOANHA'
-  const initialUnit = searchParams.get('managingUnit') || 'ALL';
+  const initialUnit = searchParams.get('managingUnit') || defaultTabByRole;
   const initialBuilding = searchParams.get('buildingAsset');
   
   const [activeTab, setActiveTab] = useState<string>(
@@ -162,83 +170,100 @@ export default function Assets() {
       {/* 3 PRIMARY DIVISION TABS (3 Khối Quản Lý Tài Sản Chuyên Trách) */}
       <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200">
         <div className="flex flex-wrap gap-1.5">
-          <button
-            onClick={() => { setActiveTab('ALL'); setPage(1); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-              activeTab === 'ALL'
-                ? 'bg-slate-900 text-white shadow'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <span>Tất cả tài sản</span>
-            <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'ALL' ? 'bg-slate-800 text-slate-200' : 'bg-slate-200 text-slate-700'}`}>
-              3,684
-            </span>
-          </button>
+          {(!user || user.role === 'ADMIN') && (
+            <button
+              onClick={() => { setActiveTab('ALL'); setPage(1); }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+                activeTab === 'ALL'
+                  ? 'bg-slate-900 text-white shadow'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <span>Tất cả tài sản</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'ALL' ? 'bg-slate-800 text-slate-200' : 'bg-slate-200 text-slate-700'}`}>
+                3,501
+              </span>
+            </button>
+          )}
 
           {/* 1. Khoa Dược (TBYT) */}
-          <button
-            onClick={() => { setActiveTab('DUOC'); setPage(1); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-              activeTab === 'DUOC'
-                ? 'bg-emerald-600 text-white shadow'
-                : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'
-            }`}
-          >
-            <Stethoscope className="w-4 h-4" />
-            <span>Khối Trang thiết bị Y tế (Khoa Dược)</span>
-            <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'DUOC' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
-              1,497
-            </span>
-          </button>
+          {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_DUOC') && (
+            <button
+              onClick={() => { setActiveTab('DUOC'); setPage(1); }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+                activeTab === 'DUOC'
+                  ? 'bg-emerald-600 text-white shadow'
+                  : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'
+              }`}
+            >
+              <Stethoscope className="w-4 h-4" />
+              <span>Khối Trang thiết bị Y tế (Khoa Dược)</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'DUOC' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+                1,497
+              </span>
+            </button>
+          )}
 
           {/* 2. Tổ CNTT */}
-          <button
-            onClick={() => { setActiveTab('CNTT'); setPage(1); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-              activeTab === 'CNTT'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'
-            }`}
-          >
-            <Monitor className="w-4 h-4" />
-            <span>Khối Thiết bị CNTT (Tổ CNTT)</span>
-            <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'CNTT' ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}>
-              896
-            </span>
-          </button>
+          {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_CNTT') && (
+            <button
+              onClick={() => { setActiveTab('CNTT'); setPage(1); }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+                activeTab === 'CNTT'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'
+              }`}
+            >
+              <Monitor className="w-4 h-4" />
+              <span>Khối Thiết bị CNTT (Tổ CNTT)</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'CNTT' ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}>
+                713
+              </span>
+            </button>
+          )}
 
           {/* 3. TCHC - Thiết bị hành chính */}
-          <button
-            onClick={() => { setActiveTab('TCHC_HC'); setPage(1); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-              activeTab === 'TCHC_HC'
-                ? 'bg-amber-600 text-white shadow'
-                : 'text-slate-700 hover:bg-amber-50 hover:text-amber-700'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            <span>TCHC (Thiết bị hành chính)</span>
-            <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'TCHC_HC' ? 'bg-amber-700 text-white' : 'bg-amber-100 text-amber-800'}`}>
-              294
-            </span>
-          </button>
+          {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_TCHC') && (
+            <button
+              onClick={() => { setActiveTab('TCHC_HC'); setPage(1); }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+                activeTab === 'TCHC_HC'
+                  ? 'bg-amber-600 text-white shadow'
+                  : 'text-slate-700 hover:bg-amber-50 hover:text-amber-700'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>TCHC (Thiết bị hành chính)</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'TCHC_HC' ? 'bg-amber-700 text-white' : 'bg-amber-100 text-amber-800'}`}>
+                294
+              </span>
+            </button>
+          )}
 
           {/* 4. TCHC - Cơ sở vật chất tòa nhà theo tầng */}
-          <button
-            onClick={() => { setActiveTab('TCHC_TOANHA'); setPage(1); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-              activeTab === 'TCHC_TOANHA'
-                ? 'bg-orange-600 text-white shadow'
-                : 'text-slate-700 hover:bg-orange-50 hover:text-orange-700'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>TCHC (Hạ tầng tòa nhà theo tầng)</span>
-            <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'TCHC_TOANHA' ? 'bg-orange-700 text-white' : 'bg-orange-100 text-orange-800'}`}>
-              997
-            </span>
-          </button>
+          {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_TCHC') && (
+            <button
+              onClick={() => { setActiveTab('TCHC_TOANHA'); setPage(1); }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+                activeTab === 'TCHC_TOANHA'
+                  ? 'bg-orange-600 text-white shadow'
+                  : 'text-slate-700 hover:bg-orange-50 hover:text-orange-700'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>TCHC (Hạ tầng tòa nhà theo tầng)</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'TCHC_TOANHA' ? 'bg-orange-700 text-white' : 'bg-orange-100 text-orange-800'}`}>
+                997
+              </span>
+            </button>
+          )}
+
+          {/* Khoa phòng banner if department user */}
+          {user?.role === 'DEPARTMENT' && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-800 rounded-xl text-xs font-bold">
+              <span>🏢 Đang hiển thị danh mục tài sản do {user.fullName} trực tiếp quản lý & sử dụng</span>
+            </div>
+          )}
         </div>
 
         {/* Floor Pills (Hiển thị khi chọn Tòa nhà hoặc xem toàn bộ) */}

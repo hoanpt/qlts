@@ -46,8 +46,17 @@ router.get('/', requireAuth, async (req: any, res) => {
     where.buildingAsset = parseInt(buildingAsset as string) || 0;
   }
 
-  if (req.user && req.user.role === 'DEPARTMENT' && req.user.departmentId && !departmentId && !search && !managingUnit) {
-    where.departmentId = req.user.departmentId;
+  // Strict Role-based access control
+  if (req.user) {
+    if (req.user.role === 'MANAGER_CNTT') {
+      where.managingUnit = 'CNTT';
+    } else if (req.user.role === 'MANAGER_DUOC') {
+      where.managingUnit = 'DUOC';
+    } else if (req.user.role === 'MANAGER_TCHC') {
+      where.managingUnit = 'TCHC';
+    } else if (req.user.role === 'DEPARTMENT' && req.user.departmentId) {
+      where.departmentId = req.user.departmentId;
+    }
   }
 
   try {
