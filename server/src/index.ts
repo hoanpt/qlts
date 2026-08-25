@@ -19,9 +19,50 @@ import committeeRoutes from './routes/committee';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// 1. Ensure Persistent Storage & SQLite Database Initialization
+const dbUrl = process.env.DATABASE_URL || 'file:./dev.db';
+if (dbUrl.startsWith('file:')) {
+  const dbFilePath = dbUrl.replace('file:', '').trim();
+  const dbDir = path.dirname(dbFilePath);
+  
+  if (dbDir && dbDir !== '.' && !fs.existsSync(dbDir)) {
+    try {
+      fs.mkdirSync(dbDir, { recursive: true });
+      console.log(`[Storage] Created persistent database directory: ${dbDir}`);
+    } catch (e) {
+      console.warn(`[Storage] Warning creating directory ${dbDir}:`, e);
+    }
+  }
+
+  // If persistent database file does not exist yet (first deploy), copy initial bundled database
+  if (!fs.existsSync(dbFilePath)) {
+    const bundledCandidates = [
+      path.join(__dirname, '../prisma/dev.db'),
+      path.join(__dirname, '../../prisma/dev.db'),
+      path.join(process.cwd(), 'prisma/dev.db'),
+      path.join(process.cwd(), 'server/prisma/dev.db')
+    ];
+    const foundBundled = bundledCandidates.find(p => fs.existsSync(p));
+    if (foundBundled) {
+      try {
+        fs.copyFileSync(foundBundled, dbFilePath);
+        console.log(`[Storage] Initialized persistent database from ${foundBundled} -> ${dbFilePath}`);
+      } catch (e) {
+        console.warn('[Storage] Could not copy initial database:', e);
+      }
+    }
+  }
+}
+
+// 2. Ensure Uploads Directory
+const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch {}
+}
+
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(uploadsDir));
 
 // API Routes
 app.use('/api/auth', authRoutes);
