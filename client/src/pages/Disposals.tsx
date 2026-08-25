@@ -66,6 +66,36 @@ export default function Disposals() {
     description: 'Đề nghị các Khoa/Phòng trực thuộc tiến hành kiểm tra, rà soát toàn bộ tài sản, máy móc, trang thiết bị y tế, thiết bị CNTT, CCDC bị hư hỏng không thể phục hồi để lập báo cáo đề xuất gửi về đơn vị chuyên trách (Khoa Dược, Tổ CNTT, Phòng TCHC).'
   });
 
+  // Signatures configuration for Disposals & Board Meeting
+  const [showDisposalSignaturesModal, setShowDisposalSignaturesModal] = useState(false);
+  const [disposalSignatures, setDisposalSignatures] = useState(() => {
+    const saved = localStorage.getItem('disposal_signatures');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return {
+      meetingDate: '15 tháng 01 năm 2026',
+      decisionNumber: 'QĐ số 45/QĐ-TTKSBT ngày 20/02/2026',
+      fundingSource: 'Tiền thu thanh lý nộp Quỹ phát triển hoạt động sự nghiệp / Ngân sách Nhà nước',
+      presidentTitle: 'CHỦ TỊCH HỘI ĐỒNG',
+      presidentName: 'Ông. Nguyễn Đại Vĩnh',
+      memberTcktTitle: 'ỦY VIÊN TÀI CHÍNH',
+      memberTcktName: 'Ông. Hồ Phú Quảng',
+      memberTechTitle: 'ỦY VIÊN KỸ THUẬT',
+      memberTechName: 'Ông. Phan Thanh Hoàn (Tổ CNTT) / Bà. Mai Thị Tính (Khoa Dược)',
+      memberDeptTitle: 'ĐẠI DIỆN KHOA / PHÒNG',
+      memberDeptName: 'Trưởng / Phó Đơn vị',
+      inspectorTitle: 'CÁN BỘ KIỂM TRA KỸ THUẬT',
+      inspectorName: 'KTV. Phan Thanh Hoàn'
+    };
+  });
+
+  const handleSaveDisposalSignatures = (newSigs: typeof disposalSignatures) => {
+    setDisposalSignatures(newSigs);
+    localStorage.setItem('disposal_signatures', JSON.stringify(newSigs));
+    setShowDisposalSignaturesModal(false);
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -488,79 +518,102 @@ export default function Disposals() {
       {/* 4. BIÊN BẢN KIỂM TRA TÌNH TRẠNG KỸ THUẬT TÀI SẢN ĐỀ NGHỊ THANH LÝ (A4)   */}
       {/* ========================================================================= */}
       {activeTab === 'INSPECTIONS' && (
-        <div className="bg-white p-8 sm:p-12 rounded-2xl shadow-md border border-slate-200 font-serif text-slate-900 print:shadow-none print:border-none print:p-0">
-          <div className="flex justify-between items-start text-xs sm:text-sm font-sans mb-4">
-            <div>
-              <div className="font-bold uppercase">TRUNG TÂM KIỂM SOÁT BỆNH TẬT TP ĐÀ NẴNG</div>
-              <div className="text-slate-600">TỔ THẨM ĐỊNH KỸ THUẬT TÀI SẢN</div>
+        <div className="space-y-4">
+          {/* Action Button Bar */}
+          <div className="print:hidden flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <div className="text-xs font-semibold text-slate-600">
+              Biên bản thẩm định kỹ thuật dành cho: <strong className="text-blue-700">{selectedManagingUnit === 'CNTT' ? 'Tổ CNTT' : selectedManagingUnit === 'DUOC' ? 'Khoa Dược (TBYT)' : selectedManagingUnit === 'TCHC' ? 'Phòng TCHC' : 'Toàn đơn vị'}</strong>
             </div>
-            <div className="text-right">
-              <div className="font-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-              <div className="italic text-xs">Độc lập - Tự do - Hạnh phúc</div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowDisposalSignaturesModal(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                title="Tùy chỉnh Hội đồng & Người ký"
+              >
+                <Users className="w-4 h-4 text-blue-600" /> Cấu hình Người ký
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
+              >
+                <Printer className="w-4 h-4" /> In Biên Bản Kỹ Thuật A4
+              </button>
             </div>
           </div>
 
-          <div className="text-center my-6">
-            <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wide">
-              BIÊN BẢN KIỂM TRA TÌNH TRẠNG KỸ THUẬT TÀI SẢN ĐỀ NGHỊ THANH LÝ
-            </h2>
-            <p className="text-xs sm:text-sm italic text-slate-600 mt-1 font-sans">
-              (Thực hiện theo Thông báo rà soát & thanh lý tài sản năm 2026)
-            </p>
-          </div>
-
-          <div className="text-xs sm:text-sm font-sans space-y-2 mb-6 text-slate-800">
-            <p>- Căn cứ Báo cáo đề xuất thanh lý của các Khoa, Phòng trực thuộc Trung tâm;</p>
-            <p>- Hôm nay, ngày 15 tháng 01 năm 2026, Đoàn kiểm tra kỹ thuật gồm có:</p>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-              <div>1. <strong>{leaderCNTT.fullName}</strong> - {leaderCNTT.position} (Tổ trưởng Tổ CNTT)</div>
-              <div>2. <strong>{cnttMembers[0]?.fullName || 'Ông. Phan Thanh Hoàn'}</strong> - Cán bộ Kỹ thuật CNTT</div>
-              <div>3. <strong>{cnttMembers[1]?.fullName || 'Bà. Trần Thị Liên'}</strong> - Cán bộ Kỹ thuật CNTT</div>
-              <div>4. <strong>Đại diện Khoa / Phòng có tài sản đề xuất thanh lý</strong></div>
-            </div>
-            <p className="pt-2">Cùng tiến hành kiểm tra, thẩm định tình trạng kỹ thuật thực tế của các tài sản như sau:</p>
-          </div>
-
-          <div className="overflow-x-auto border border-slate-400 rounded-lg">
-            <table className="w-full text-xs font-sans border-collapse text-left">
-              <thead>
-                <tr className="bg-slate-100 text-center font-bold border-b border-slate-400 divide-x divide-slate-300">
-                  <th className="p-2 w-10">STT</th>
-                  <th className="p-2 min-w-[90px]">Mã TS</th>
-                  <th className="p-2 min-w-[180px]">Tên tài sản, thiết bị</th>
-                  <th className="p-2 min-w-[120px]">Đơn vị sử dụng</th>
-                  <th className="p-2 min-w-[220px]">Hiện trạng kỹ thuật & Hư hỏng thực tế</th>
-                  <th className="p-2 min-w-[150px]">Kết luận & Phương án xử lý</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-300">
-                {filteredDisposals.map((item: any, idx) => (
-                  <tr key={item.id} className="divide-x divide-slate-200">
-                    <td className="p-2 text-center text-slate-600">{idx + 1}</td>
-                    <td className="p-2 font-mono font-bold text-blue-700">{item.asset?.assetCode}</td>
-                    <td className="p-2 font-semibold text-slate-900">{item.asset?.name}</td>
-                    <td className="p-2">{item.asset?.department?.name || 'CDC'}</td>
-                    <td className="p-2 text-slate-700">{item.technicalAssessment || item.reason}</td>
-                    <td className="p-2 text-center font-semibold text-red-700">Đề nghị thanh lý ({item.disposalMethod || 'Bán phế liệu'})</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-10 pt-4 font-sans text-xs sm:text-sm">
-            <div className="text-right italic mb-4">Đà Nẵng, ngày 15 tháng 01 năm 2026</div>
-            <div className="grid grid-cols-2 gap-8 text-center">
+          <div className="bg-white p-8 sm:p-12 rounded-2xl shadow-md border border-slate-200 font-serif text-slate-900 print:shadow-none print:border-none print:p-0">
+            <div className="flex justify-between items-start text-xs sm:text-sm font-sans mb-4">
               <div>
-                <div className="font-bold uppercase text-slate-900">ĐẠI DIỆN KHOA/PHÒNG SỬ DỤNG</div>
-                <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
-                <div className="font-bold text-slate-800">Trưởng / Phó Đơn vị</div>
+                <div className="font-bold uppercase">TRUNG TÂM KIỂM SOÁT BỆNH TẬT TP ĐÀ NẴNG</div>
+                <div className="text-slate-600">TỔ THẨM ĐỊNH KỸ THUẬT TÀI SẢN</div>
               </div>
+              <div className="text-right">
+                <div className="font-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                <div className="italic text-xs">Độc lập - Tự do - Hạnh phúc</div>
+              </div>
+            </div>
 
-              <div>
-                <div className="font-bold uppercase text-slate-900">CÁN BỘ KIỂM TRA KỸ THUẬT</div>
-                <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
-                <div className="font-bold text-slate-800">{leaderCNTT.fullName}</div>
+            <div className="text-center my-6">
+              <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wide">
+                BIÊN BẢN KIỂM TRA TÌNH TRẠNG KỸ THUẬT TÀI SẢN ĐỀ NGHỊ THANH LÝ
+              </h2>
+              <p className="text-xs sm:text-sm italic text-slate-600 mt-1 font-sans">
+                (Thực hiện theo Thông báo rà soát & thanh lý tài sản năm 2026)
+              </p>
+            </div>
+
+            <div className="text-xs sm:text-sm font-sans space-y-2 mb-6 text-slate-800">
+              <p>- Căn cứ Báo cáo đề xuất thanh lý của các Khoa, Phòng trực thuộc Trung tâm;</p>
+              <p>- Hôm nay, ngày {disposalSignatures.meetingDate}, Đoàn kiểm tra kỹ thuật gồm có:</p>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                <div>1. <strong>{disposalSignatures.inspectorName}</strong> - {disposalSignatures.inspectorTitle}</div>
+                <div>2. <strong>{disposalSignatures.memberTechName}</strong> - {disposalSignatures.memberTechTitle}</div>
+                <div>3. <strong>{disposalSignatures.memberDeptName}</strong> - {disposalSignatures.memberDeptTitle}</div>
+              </div>
+              <p className="pt-2">Cùng tiến hành kiểm tra, thẩm định tình trạng kỹ thuật thực tế của các tài sản như sau:</p>
+            </div>
+
+            <div className="overflow-x-auto border border-slate-400 rounded-lg">
+              <table className="w-full text-xs font-sans border-collapse text-left">
+                <thead>
+                  <tr className="bg-slate-100 text-center font-bold border-b border-slate-400 divide-x divide-slate-300">
+                    <th className="p-2 w-10">STT</th>
+                    <th className="p-2 min-w-[90px]">Mã TS</th>
+                    <th className="p-2 min-w-[180px]">Tên tài sản, thiết bị</th>
+                    <th className="p-2 min-w-[120px]">Đơn vị sử dụng</th>
+                    <th className="p-2 min-w-[220px]">Hiện trạng kỹ thuật & Hư hỏng thực tế</th>
+                    <th className="p-2 min-w-[150px]">Kết luận & Phương án xử lý</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-300">
+                  {filteredDisposals.map((item: any, idx) => (
+                    <tr key={item.id} className="divide-x divide-slate-200">
+                      <td className="p-2 text-center text-slate-600">{idx + 1}</td>
+                      <td className="p-2 font-mono font-bold text-blue-700">{item.asset?.assetCode}</td>
+                      <td className="p-2 font-semibold text-slate-900">{item.asset?.name}</td>
+                      <td className="p-2">{item.asset?.department?.name || 'CDC'}</td>
+                      <td className="p-2 text-slate-700">{item.technicalAssessment || item.reason}</td>
+                      <td className="p-2 text-center font-semibold text-red-700">Đề nghị thanh lý ({item.disposalMethod || 'Bán phế liệu'})</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-10 pt-4 font-sans text-xs sm:text-sm">
+              <div className="text-right italic mb-4">Đà Nẵng, ngày {disposalSignatures.meetingDate}</div>
+              <div className="grid grid-cols-2 gap-8 text-center">
+                <div>
+                  <div className="font-bold uppercase text-slate-900">{disposalSignatures.memberDeptTitle}</div>
+                  <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
+                  <div className="font-bold text-slate-800">{disposalSignatures.memberDeptName}</div>
+                </div>
+
+                <div>
+                  <div className="font-bold uppercase text-slate-900">{disposalSignatures.inspectorTitle}</div>
+                  <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
+                  <div className="font-bold text-slate-800">{disposalSignatures.inspectorName}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -571,120 +624,140 @@ export default function Disposals() {
       {/* 5. BIÊN BẢN HỌP HỘI ĐỒNG ĐÁNH GIÁ & ĐỀ XUẤT THANH LÝ TÀI SẢN (A4)         */}
       {/* ========================================================================= */}
       {activeTab === 'BOARD_MEETING' && (
-        <div className="bg-white p-8 sm:p-12 rounded-2xl shadow-md border border-slate-200 font-serif text-slate-900 print:shadow-none print:border-none print:p-0">
-          <div className="flex justify-between items-start text-xs sm:text-sm font-sans mb-4">
-            <div>
-              <div className="font-bold uppercase">TRUNG TÂM KIỂM SOÁT BỆNH TẬT TP ĐÀ NẴNG</div>
-              <div className="text-slate-600">HỘI ĐỒNG THANH LÝ TÀI SẢN</div>
+        <div className="space-y-4">
+          {/* Action Button Bar */}
+          <div className="print:hidden flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <div className="text-xs font-semibold text-slate-600">
+              Biên bản họp Hội đồng thanh lý tài sản CDC Đà Nẵng
             </div>
-            <div className="text-right">
-              <div className="font-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-              <div className="italic text-xs">Độc lập - Tự do - Hạnh phúc</div>
-            </div>
-          </div>
-
-          <div className="text-center my-6">
-            <h2 className="text-lg sm:text-2xl font-bold uppercase tracking-wide">
-              BIÊN BẢN HỌP HỘI ĐỒNG THANH LÝ TÀI SẢN, CCDC NĂM 2026
-            </h2>
-            <div className="text-xs sm:text-sm text-slate-700 mt-2 font-sans space-y-1">
-              <p className="italic">
-                - Căn cứ Quyết định số <strong>45/QĐ-TTKSBT</strong> ngày 20/02/2026 của Giám đốc CDC Đà Nẵng về việc thành lập Hội đồng thanh lý tài sản, máy móc thiết bị hư hỏng.
-              </p>
-              <p className="italic">
-                - Nguồn kinh phí thanh lý: <strong>Tiền thu thanh lý nộp Quỹ phát triển hoạt động sự nghiệp / Ngân sách Nhà nước</strong>
-              </p>
-              <p className="italic">
-                - Hôm nay, ngày 15 tháng 01 năm 2026, tại Trung tâm Kiểm soát bệnh tật TP Đà Nẵng, Hội đồng gồm có:
-              </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowDisposalSignaturesModal(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                title="Tùy chỉnh Hội đồng & Người ký"
+              >
+                <Users className="w-4 h-4 text-blue-600" /> Cấu hình Hội đồng & Người ký
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
+              >
+                <Printer className="w-4 h-4" /> In Biên Bản Họp HĐ A4
+              </button>
             </div>
           </div>
 
-          {/* Thành phần Hội đồng thanh lý */}
-          <div className="bg-slate-50/70 p-5 rounded-xl border border-slate-200 text-xs sm:text-sm font-sans mb-6 space-y-2">
-            <div className="flex justify-between border-b border-slate-200 pb-1.5">
-              <span>1. <strong>{president.fullName}</strong> - {president.position}</span>
-              <span className="font-bold text-blue-800">Chủ tịch Hội đồng</span>
+          <div className="bg-white p-8 sm:p-12 rounded-2xl shadow-md border border-slate-200 font-serif text-slate-900 print:shadow-none print:border-none print:p-0">
+            <div className="flex justify-between items-start text-xs sm:text-sm font-sans mb-4">
+              <div>
+                <div className="font-bold uppercase">TRUNG TÂM KIỂM SOÁT BỆNH TẬT TP ĐÀ NẴNG</div>
+                <div className="text-slate-600">HỘI ĐỒNG THANH LÝ TÀI SẢN</div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                <div className="italic text-xs">Độc lập - Tự do - Hạnh phúc</div>
+              </div>
             </div>
-            <div className="flex justify-between border-b border-slate-200 pb-1.5">
-              <span>2. <strong>{memberTCKT.fullName}</strong> - {memberTCKT.position}</span>
-              <span className="font-bold text-slate-700">Ủy viên Tài chính</span>
-            </div>
-            <div className="flex justify-between border-b border-slate-200 pb-1.5">
-              <span>3. <strong>{leaderDUOC.fullName}</strong> - {leaderDUOC.position}</span>
-              <span className="font-bold text-slate-700">Ủy viên Kỹ thuật (TBYT)</span>
-            </div>
-            <div className="flex justify-between border-b border-slate-200 pb-1.5">
-              <span>4. <strong>{leaderCNTT.fullName}</strong> - {leaderCNTT.position}</span>
-              <span className="font-bold text-slate-700">Ủy viên Kỹ thuật (CNTT)</span>
-            </div>
-            <div className="flex justify-between border-b border-slate-200 pb-1.5">
-              <span>5. <strong>{leaderTCHC.fullName}</strong> - {leaderTCHC.position}</span>
-              <span className="font-bold text-slate-700">Ủy viên Hành chính (TCHC)</span>
-            </div>
-            <div className="pt-1 text-slate-700">
-              <span>Căn cứ Biên bản kiểm tra tình trạng kỹ thuật, Hội đồng thống nhất thông qua danh mục thanh lý:</span>
-            </div>
-          </div>
 
-          {/* Bảng tài sản thanh lý */}
-          <div className="overflow-x-auto border border-slate-400 rounded-lg">
-            <table className="w-full text-xs font-sans border-collapse text-left">
-              <thead>
-                <tr className="bg-slate-100 text-center font-bold border-b border-slate-400 divide-x divide-slate-300">
-                  <th className="p-2 w-10">STT</th>
-                  <th className="p-2 min-w-[90px]">Mã TS</th>
-                  <th className="p-2 min-w-[180px]">Tên tài sản, thiết bị</th>
-                  <th className="p-2 min-w-[80px]">Năm SD</th>
-                  <th className="p-2 min-w-[90px]">Nguyên giá (đ)</th>
-                  <th className="p-2 min-w-[120px]">Đơn vị sử dụng</th>
-                  <th className="p-2 min-w-[200px]">Lý do thanh lý</th>
-                  <th className="p-2 min-w-[100px]">Quyết định HĐ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-300">
-                {candidateAssets.slice(0, 15).map((a, idx) => (
-                  <tr key={a.id} className="divide-x divide-slate-200">
-                    <td className="p-2 text-center text-slate-600">{idx + 1}</td>
-                    <td className="p-2 font-mono font-bold text-blue-700">{a.assetCode}</td>
-                    <td className="p-2 font-semibold text-slate-900">{a.name}</td>
-                    <td className="p-2 text-center">{a.yearInUse || '-'}</td>
-                    <td className="p-2 text-right font-mono">{a.originalPrice ? Number(a.originalPrice).toLocaleString('vi-VN') : '-'}</td>
-                    <td className="p-2">{a.department?.name || 'CDC'}</td>
-                    <td className="p-2 text-slate-700">{a.note || 'Hư hỏng không thể phục hồi, chi phí sửa chữa không hiệu quả'}</td>
-                    <td className="p-2 text-center font-bold text-emerald-700">Đồng ý thanh lý</td>
+            <div className="text-center my-6">
+              <h2 className="text-lg sm:text-2xl font-bold uppercase tracking-wide">
+                BIÊN BẢN HỌP HỘI ĐỒNG THANH LÝ TÀI SẢN, CCDC NĂM 2026
+              </h2>
+              <div className="text-xs sm:text-sm text-slate-700 mt-2 font-sans space-y-1">
+                <p className="italic">
+                  - Căn cứ <strong>{disposalSignatures.decisionNumber}</strong> của Giám đốc CDC Đà Nẵng về việc thành lập Hội đồng thanh lý tài sản, máy móc thiết bị hư hỏng.
+                </p>
+                <p className="italic">
+                  - Nguồn kinh phí thanh lý: <strong>{disposalSignatures.fundingSource}</strong>
+                </p>
+                <p className="italic">
+                  - Hôm nay, ngày {disposalSignatures.meetingDate}, tại Trung tâm Kiểm soát bệnh tật TP Đà Nẵng, Hội đồng gồm có:
+                </p>
+              </div>
+            </div>
+
+            {/* Thành phần Hội đồng thanh lý */}
+            <div className="bg-slate-50/70 p-5 rounded-xl border border-slate-200 text-xs sm:text-sm font-sans mb-6 space-y-2">
+              <div className="flex justify-between border-b border-slate-200 pb-1.5">
+                <span>1. <strong>{disposalSignatures.presidentName}</strong> - {disposalSignatures.presidentTitle}</span>
+                <span className="font-bold text-blue-800">Chủ tịch Hội đồng</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200 pb-1.5">
+                <span>2. <strong>{disposalSignatures.memberTcktName}</strong> - {disposalSignatures.memberTcktTitle}</span>
+                <span className="font-bold text-slate-700">Ủy viên Tài chính</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200 pb-1.5">
+                <span>3. <strong>{disposalSignatures.memberTechName}</strong> - {disposalSignatures.memberTechTitle}</span>
+                <span className="font-bold text-slate-700">Ủy viên Kỹ thuật</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200 pb-1.5">
+                <span>4. <strong>{disposalSignatures.memberDeptName}</strong> - {disposalSignatures.memberDeptTitle}</span>
+                <span className="font-bold text-slate-700">Đại diện Đơn vị</span>
+              </div>
+              <div className="pt-1 text-slate-700">
+                <span>Căn cứ Biên bản kiểm tra tình trạng kỹ thuật, Hội đồng thống nhất thông qua danh mục thanh lý:</span>
+              </div>
+            </div>
+
+            {/* Bảng tài sản thanh lý */}
+            <div className="overflow-x-auto border border-slate-400 rounded-lg">
+              <table className="w-full text-xs font-sans border-collapse text-left">
+                <thead>
+                  <tr className="bg-slate-100 text-center font-bold border-b border-slate-400 divide-x divide-slate-300">
+                    <th className="p-2 w-10">STT</th>
+                    <th className="p-2 min-w-[90px]">Mã TS</th>
+                    <th className="p-2 min-w-[180px]">Tên tài sản, thiết bị</th>
+                    <th className="p-2 min-w-[80px]">Năm SD</th>
+                    <th className="p-2 min-w-[90px]">Nguyên giá (đ)</th>
+                    <th className="p-2 min-w-[120px]">Đơn vị sử dụng</th>
+                    <th className="p-2 min-w-[200px]">Lý do thanh lý</th>
+                    <th className="p-2 min-w-[100px]">Quyết định HĐ</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-300">
+                  {candidateAssets.slice(0, 15).map((a, idx) => (
+                    <tr key={a.id} className="divide-x divide-slate-200">
+                      <td className="p-2 text-center text-slate-600">{idx + 1}</td>
+                      <td className="p-2 font-mono font-bold text-blue-700">{a.assetCode}</td>
+                      <td className="p-2 font-semibold text-slate-900">{a.name}</td>
+                      <td className="p-2 text-center">{a.yearInUse || '-'}</td>
+                      <td className="p-2 text-right font-mono">{a.originalPrice ? Number(a.originalPrice).toLocaleString('vi-VN') : '-'}</td>
+                      <td className="p-2">{a.department?.name || 'CDC'}</td>
+                      <td className="p-2 text-slate-700">{a.note || 'Hư hỏng không thể phục hồi, chi phí sửa chữa không hiệu quả'}</td>
+                      <td className="p-2 text-center font-bold text-emerald-700">Đồng ý thanh lý</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          {/* Chữ ký Hội đồng */}
-          <div className="mt-10 pt-4 font-sans text-xs sm:text-sm">
-            <div className="text-right italic mb-4">Đà Nẵng, ngày 15 tháng 01 năm 2026</div>
-            <div className="grid grid-cols-4 gap-4 text-center">
-              <div>
-                <div className="font-bold uppercase text-slate-900">Ủy viên CNTT</div>
-                <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
-                <div className="font-bold text-slate-800">{leaderCNTT.fullName}</div>
-              </div>
+            {/* Chữ ký Hội đồng */}
+            <div className="mt-10 pt-4 font-sans text-xs sm:text-sm">
+              <div className="text-right italic mb-4">Đà Nẵng, ngày {disposalSignatures.meetingDate}</div>
+              <div className="grid grid-cols-4 gap-4 text-center">
+                <div>
+                  <div className="font-bold uppercase text-slate-900">{disposalSignatures.memberDeptTitle}</div>
+                  <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
+                  <div className="font-bold text-slate-800">{disposalSignatures.memberDeptName}</div>
+                </div>
 
-              <div>
-                <div className="font-bold uppercase text-slate-900">Ủy viên TBYT</div>
-                <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
-                <div className="font-bold text-slate-800">{leaderDUOC.fullName}</div>
-              </div>
+                <div>
+                  <div className="font-bold uppercase text-slate-900">{disposalSignatures.memberTechTitle}</div>
+                  <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
+                  <div className="font-bold text-slate-800">{disposalSignatures.memberTechName}</div>
+                </div>
 
-              <div>
-                <div className="font-bold uppercase text-slate-900">Ủy viên Tài chính</div>
-                <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
-                <div className="font-bold text-slate-800">{memberTCKT.fullName}</div>
-              </div>
+                <div>
+                  <div className="font-bold uppercase text-slate-900">{disposalSignatures.memberTcktTitle}</div>
+                  <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
+                  <div className="font-bold text-slate-800">{disposalSignatures.memberTcktName}</div>
+                </div>
 
-              <div>
-                <div className="font-bold uppercase text-slate-900">Chủ tịch Hội đồng</div>
-                <div className="text-[11px] italic text-slate-500 mb-20">(Ký, đóng dấu)</div>
-                <div className="font-bold text-slate-800">{president.fullName}</div>
+                <div>
+                  <div className="font-bold uppercase text-slate-900">{disposalSignatures.presidentTitle}</div>
+                  <div className="text-[11px] italic text-slate-500 mb-20">(Ký, đóng dấu)</div>
+                  <div className="font-bold text-slate-800">{disposalSignatures.presidentName}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -961,6 +1034,214 @@ export default function Disposals() {
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow"
                 >
                   Ban Hành Thông Báo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 4: TÙY CHỈNH HỘI ĐỒNG & NGƯỜI KÝ THANH LÝ                          */}
+      {/* ========================================================================= */}
+      {showDisposalSignaturesModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Cấu Hình Hội Đồng & Người Ký Biên Bản Thanh Lý</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Tùy chỉnh thông tin căn cứ pháp lý & chữ ký các thành viên</p>
+              </div>
+              <button onClick={() => setShowDisposalSignaturesModal(false)} className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                handleSaveDisposalSignatures(disposalSignatures);
+              }}
+              className="space-y-4 text-xs"
+            >
+              {/* Quick Presets */}
+              <div className="flex flex-wrap items-center gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[11px] font-bold text-slate-600 mr-1">Khối phụ trách:</span>
+                <button
+                  type="button"
+                  onClick={() => setDisposalSignatures({
+                    ...disposalSignatures,
+                    memberTechTitle: 'ỦY VIÊN KỸ THUẬT (CNTT)',
+                    memberTechName: 'Ông. Phan Thanh Hoàn',
+                    inspectorTitle: 'CÁN BỘ KIỂM TRA KỸ THUẬT CNTT',
+                    inspectorName: 'KTV. Phan Thanh Hoàn'
+                  })}
+                  className="px-2 py-1 bg-blue-100 text-blue-800 rounded-lg font-bold text-[11px] hover:bg-blue-200 cursor-pointer"
+                >
+                  💻 Tổ CNTT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDisposalSignatures({
+                    ...disposalSignatures,
+                    memberTechTitle: 'ỦY VIÊN KỸ THUẬT (TBYT)',
+                    memberTechName: 'Bà. Mai Thị Tính',
+                    inspectorTitle: 'CÁN BỘ KIỂM TRA KỸ THUẬT TBYT',
+                    inspectorName: 'DS. Mai Thị Tính'
+                  })}
+                  className="px-2 py-1 bg-emerald-100 text-emerald-800 rounded-lg font-bold text-[11px] hover:bg-emerald-200 cursor-pointer"
+                >
+                  🩺 Khoa Dược (TBYT)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDisposalSignatures({
+                    ...disposalSignatures,
+                    memberTechTitle: 'ỦY VIÊN HÀNH CHÍNH (TCHC)',
+                    memberTechName: 'Ông. Trần Liên',
+                    inspectorTitle: 'CÁN BỘ KIỂM TRA CSVC / HÀNH CHÍNH',
+                    inspectorName: 'Trưởng phòng TCHC'
+                  })}
+                  className="px-2 py-1 bg-amber-100 text-amber-800 rounded-lg font-bold text-[11px] hover:bg-amber-200 cursor-pointer"
+                >
+                  🏢 Phòng TCHC
+                </button>
+              </div>
+
+              {/* Thông tin căn cứ chung */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="font-bold text-slate-800">Thông tin căn cứ & Thời gian</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Ngày lập biên bản / họp</label>
+                    <input
+                      type="text"
+                      value={disposalSignatures.meetingDate}
+                      onChange={e => setDisposalSignatures({ ...disposalSignatures, meetingDate: e.target.value })}
+                      placeholder="15 tháng 01 năm 2026"
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Căn cứ Quyết định số</label>
+                    <input
+                      type="text"
+                      value={disposalSignatures.decisionNumber}
+                      onChange={e => setDisposalSignatures({ ...disposalSignatures, decisionNumber: e.target.value })}
+                      placeholder="QĐ số 45/QĐ-TTKSBT ngày 20/02/2026"
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Nguồn kinh phí / Xử lý tiền thu</label>
+                  <input
+                    type="text"
+                    value={disposalSignatures.fundingSource}
+                    onChange={e => setDisposalSignatures({ ...disposalSignatures, fundingSource: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Thành phần 4 chữ ký */}
+              <div className="space-y-2">
+                {/* 1. Đại diện Khoa/Phòng / Thẩm định */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="font-bold text-slate-800">1. Đại diện Khoa / Phòng có tài sản thanh lý</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={disposalSignatures.memberDeptTitle}
+                      onChange={e => setDisposalSignatures({ ...disposalSignatures, memberDeptTitle: e.target.value })}
+                      className="w-full p-1.5 border border-slate-300 rounded-lg bg-white"
+                      placeholder="Chức danh"
+                    />
+                    <input
+                      type="text"
+                      value={disposalSignatures.memberDeptName}
+                      onChange={e => setDisposalSignatures({ ...disposalSignatures, memberDeptName: e.target.value })}
+                      className="w-full p-1.5 border border-slate-300 rounded-lg bg-white"
+                      placeholder="Họ tên"
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Cán bộ kỹ thuật / Thẩm định */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="font-bold text-slate-800">2. Cán bộ Kiểm tra Kỹ thuật / Ủy viên Chuyên trách</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={disposalSignatures.memberTechTitle}
+                      onChange={e => setDisposalSignatures({ ...disposalSignatures, memberTechTitle: e.target.value })}
+                      className="w-full p-1.5 border border-slate-300 rounded-lg bg-white"
+                      placeholder="Chức danh"
+                    />
+                    <input
+                      type="text"
+                      value={disposalSignatures.memberTechName}
+                      onChange={e => setDisposalSignatures({ ...disposalSignatures, memberTechName: e.target.value })}
+                      className="w-full p-1.5 border border-slate-300 rounded-lg bg-white"
+                      placeholder="Họ tên"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Ủy viên Tài chính */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="font-bold text-slate-800">3. Đại diện Phòng Tài chính - Kế toán</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={disposalSignatures.memberTcktTitle}
+                      onChange={e => setDisposalSignatures({ ...disposalSignatures, memberTcktTitle: e.target.value })}
+                      className="w-full p-1.5 border border-slate-300 rounded-lg bg-white"
+                      placeholder="Chức danh"
+                    />
+                    <input
+                      type="text"
+                      value={disposalSignatures.memberTcktName}
+                      onChange={e => setDisposalSignatures({ ...disposalSignatures, memberTcktName: e.target.value })}
+                      className="w-full p-1.5 border border-slate-300 rounded-lg bg-white"
+                      placeholder="Họ tên"
+                    />
+                  </div>
+                </div>
+
+                {/* 4. Chủ tịch Hội đồng */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="font-bold text-slate-800">4. Giám đốc / Chủ tịch Hội đồng thanh lý</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={disposalSignatures.presidentTitle}
+                      onChange={e => setDisposalSignatures({ ...disposalSignatures, presidentTitle: e.target.value })}
+                      className="w-full p-1.5 border border-slate-300 rounded-lg bg-white"
+                      placeholder="Chức danh"
+                    />
+                    <input
+                      type="text"
+                      value={disposalSignatures.presidentName}
+                      onChange={e => setDisposalSignatures({ ...disposalSignatures, presidentName: e.target.value })}
+                      className="w-full p-1.5 border border-slate-300 rounded-lg bg-white"
+                      placeholder="Họ tên"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowDisposalSignaturesModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Lưu Cấu Hình Người Ký
                 </button>
               </div>
             </form>

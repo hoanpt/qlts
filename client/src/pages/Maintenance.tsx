@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Wrench, AlertTriangle, CheckCircle, Clock, 
   XCircle, Printer, Building2, Monitor, Stethoscope, Layers, FileText,
-  Calendar, DollarSign, User, Phone, CheckCircle2, ChevronRight, BarChart2
+  Calendar, DollarSign, User, Phone, CheckCircle2, ChevronRight, BarChart2, Users
 } from 'lucide-react';
 import { apiGet, apiPost, apiPut } from '../lib/api';
 import { MaintenanceRequest, Asset, Department, PRIORITY_LABELS } from '../types';
@@ -62,6 +62,33 @@ export default function Maintenance() {
     replacementParts: '',
     acceptanceMembers: ''
   });
+
+  // Signatures configuration for Report
+  const [showSignaturesModal, setShowSignaturesModal] = useState(false);
+  const [signatures, setSignatures] = useState(() => {
+    const saved = localStorage.getItem('maintenance_report_signatures');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return {
+      reporterTitle: 'NGƯỜI LẬP BÁO CÁO',
+      reporterName: user?.fullName || 'Cán bộ quản lý',
+      techTitle: user?.role === 'MANAGER_CNTT' ? 'TỔ TRƯỞNG TỔ CNTT' :
+                 user?.role === 'MANAGER_DUOC' ? 'TRƯỞNG KHOA DƯỢC - VTYT' :
+                 user?.role === 'MANAGER_TCHC' ? 'TRƯỞNG PHÒNG TỔ CHỨC - HÀNH CHÍNH' : 'PHỤ TRÁCH ĐƠN VỊ KỸ THUẬT',
+      techName: user?.role === 'MANAGER_CNTT' ? 'KTV. Phan Thanh Hoàn' :
+                user?.role === 'MANAGER_DUOC' ? 'DS. Trưởng Khoa Dược' :
+                user?.role === 'MANAGER_TCHC' ? 'Trưởng phòng TCHC' : 'Trưởng bộ phận kỹ thuật',
+      directorTitle: 'GIÁM ĐỐC / BAN GIÁM ĐỐC',
+      directorName: 'Ông. Nguyễn Đại Vĩnh'
+    };
+  });
+
+  const handleSaveSignatures = (newSigs: typeof signatures) => {
+    setSignatures(newSigs);
+    localStorage.setItem('maintenance_report_signatures', JSON.stringify(newSigs));
+    setShowSignaturesModal(false);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -479,12 +506,22 @@ export default function Maintenance() {
               </select>
             </div>
 
-            <button
-              onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
-            >
-              <Printer className="w-4 h-4" /> In Báo Cáo A4
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowSignaturesModal(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                title="Tùy chỉnh chức danh và họ tên người ký dưới báo cáo"
+              >
+                <Users className="w-4 h-4 text-blue-600" /> Cấu hình Người ký
+              </button>
+
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
+              >
+                <Printer className="w-4 h-4" /> In Báo Cáo A4
+              </button>
+            </div>
           </div>
 
           {/* PRINTABLE REPORT A4 */}
@@ -617,21 +654,21 @@ export default function Maintenance() {
               <div className="text-right italic mb-4">Đà Nẵng, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}</div>
               <div className="grid grid-cols-3 gap-6 text-center">
                 <div>
-                  <div className="font-bold uppercase text-slate-900">NGƯỜI LẬP BÁO CÁO</div>
+                  <div className="font-bold uppercase text-slate-900">{signatures.reporterTitle}</div>
                   <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
-                  <div className="font-bold text-slate-800">{user?.fullName || 'Cán bộ quản lý'}</div>
+                  <div className="font-bold text-slate-800">{signatures.reporterName}</div>
                 </div>
 
                 <div>
-                  <div className="font-bold uppercase text-slate-900">PHỤ TRÁCH ĐƠN VỊ KỸ THUẬT</div>
+                  <div className="font-bold uppercase text-slate-900">{signatures.techTitle}</div>
                   <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
-                  <div className="font-bold text-slate-800">Trưởng / Phụ trách Bộ phận</div>
+                  <div className="font-bold text-slate-800">{signatures.techName}</div>
                 </div>
 
                 <div>
-                  <div className="font-bold uppercase text-slate-900">BAN GIÁM ĐỐC CDC</div>
+                  <div className="font-bold uppercase text-slate-900">{signatures.directorTitle}</div>
                   <div className="text-[11px] italic text-slate-500 mb-20">(Ký, đóng dấu)</div>
-                  <div className="font-bold text-slate-800">Ông. Nguyễn Đại Vĩnh</div>
+                  <div className="font-bold text-slate-800">{signatures.directorName}</div>
                 </div>
               </div>
             </div>
@@ -947,6 +984,160 @@ export default function Maintenance() {
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" /> Lưu Cập Nhật Tiến Độ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 3: TÙY CHỈNH CHỮ KÝ VÀ NGƯỜI KÝ DƯỚI BÁO CÁO                         */}
+      {/* ========================================================================= */}
+      {showSignaturesModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Cấu Hình Người Ký Báo Cáo Sửa Chữa</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Tùy chỉnh chức danh & họ tên in dưới chân trang báo cáo</p>
+              </div>
+              <button onClick={() => setShowSignaturesModal(false)} className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                handleSaveSignatures(signatures);
+              }}
+              className="space-y-4 text-xs"
+            >
+              {/* Quick Preset Buttons */}
+              <div className="flex flex-wrap items-center gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[11px] font-bold text-slate-600 mr-1">Gợi ý nhanh:</span>
+                <button
+                  type="button"
+                  onClick={() => setSignatures({
+                    ...signatures,
+                    techTitle: 'TỔ TRƯỞNG TỔ CNTT',
+                    techName: 'KTV. Phan Thanh Hoàn'
+                  })}
+                  className="px-2 py-1 bg-blue-100 text-blue-800 rounded-lg font-bold text-[11px] hover:bg-blue-200 cursor-pointer"
+                >
+                  💻 Khối CNTT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSignatures({
+                    ...signatures,
+                    techTitle: 'TRƯỞNG KHOA DƯỢC - VTYT',
+                    techName: 'DS. Trưởng Khoa Dược'
+                  })}
+                  className="px-2 py-1 bg-emerald-100 text-emerald-800 rounded-lg font-bold text-[11px] hover:bg-emerald-200 cursor-pointer"
+                >
+                  🩺 Khối Dược (TBYT)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSignatures({
+                    ...signatures,
+                    techTitle: 'TRƯỞNG PHÒNG TỔ CHỨC - HÀNH CHÍNH',
+                    techName: 'Trưởng phòng TCHC'
+                  })}
+                  className="px-2 py-1 bg-amber-100 text-amber-800 rounded-lg font-bold text-[11px] hover:bg-amber-200 cursor-pointer"
+                >
+                  🏢 Khối TCHC
+                </button>
+              </div>
+
+              {/* 1. Người lập */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="font-bold text-slate-800">1. Vị trí Bên Trái (Người lập báo cáo)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Chức danh</label>
+                    <input
+                      type="text"
+                      value={signatures.reporterTitle}
+                      onChange={e => setSignatures({ ...signatures, reporterTitle: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Họ và tên</label>
+                    <input
+                      type="text"
+                      value={signatures.reporterName}
+                      onChange={e => setSignatures({ ...signatures, reporterName: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Đơn vị kỹ thuật */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="font-bold text-slate-800">2. Vị trí Ở Giữa (Phụ trách đơn vị kỹ thuật)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Chức danh</label>
+                    <input
+                      type="text"
+                      value={signatures.techTitle}
+                      onChange={e => setSignatures({ ...signatures, techTitle: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Họ và tên</label>
+                    <input
+                      type="text"
+                      value={signatures.techName}
+                      onChange={e => setSignatures({ ...signatures, techName: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Ban Giám Đốc */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="font-bold text-slate-800">3. Vị trí Bên Phải (Ban Giám Đốc phê duyệt)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Chức danh</label>
+                    <input
+                      type="text"
+                      value={signatures.directorTitle}
+                      onChange={e => setSignatures({ ...signatures, directorTitle: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Họ và tên</label>
+                    <input
+                      type="text"
+                      value={signatures.directorName}
+                      onChange={e => setSignatures({ ...signatures, directorName: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowSignaturesModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Lưu Cấu Hình Người Ký
                 </button>
               </div>
             </form>

@@ -34,11 +34,37 @@ export default function Inventory() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  
   const [inventoryDate, setInventoryDate] = useState('15/01/2026');
-
+  
   // Committee form modal state
   const [editingMember, setEditingMember] = useState<Partial<CommitteeMember> | null>(null);
+
+  // Signatures configuration for C53-HD
+  const [showSignaturesModal, setShowSignaturesModal] = useState(false);
+  const [signatures, setSignatures] = useState(() => {
+    const saved = localStorage.getItem('inventory_signatures_c53');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return {
+      membersTitle: 'Thành viên tổ kiểm kê',
+      membersList: 'Bà. Mai Thị Tính\nÔng. Phan Thanh Hoàn\nBà. Trần Thị Liên\nÔng. Phạm Phú Ân\nÔng. Huỳnh Bá Thành',
+      leaderTitle: 'Tổ trưởng Tổ chuyên trách / Đại diện Đơn vị',
+      leaderName: user?.role === 'MANAGER_CNTT' ? 'KTV. Phan Thanh Hoàn (Tổ CNTT)' :
+                  user?.role === 'MANAGER_DUOC' ? 'Bà. Mai Thị Tính (Khoa Dược)' :
+                  user?.role === 'MANAGER_TCHC' ? 'Ông. Trần Liên (Phòng TCHC)' : 'KTV. Phan Thanh Hoàn / DS. Mai Thị Tính',
+      tcktTitle: 'Trưởng phòng TC - KT',
+      tcktName: 'Ông. Hồ Phú Quảng',
+      presidentTitle: 'Chủ tịch Hội đồng kiểm kê',
+      presidentName: 'Ông. Nguyễn Đại Vĩnh'
+    };
+  });
+
+  const handleSaveSignatures = (newSigs: typeof signatures) => {
+    setSignatures(newSigs);
+    localStorage.setItem('inventory_signatures_c53', JSON.stringify(newSigs));
+    setShowSignaturesModal(false);
+  };
 
   // Load departments & committee members from API
   const loadInitialData = async () => {
@@ -273,7 +299,15 @@ export default function Inventory() {
               onClick={() => setShowCommitteeModal(true)}
               className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer"
             >
-              <Settings className="w-4 h-4 text-blue-600" /> Cấu hình Hội đồng kiểm kê
+              <Settings className="w-4 h-4 text-blue-600" /> Hội đồng theo QĐ
+            </button>
+
+            <button
+              onClick={() => setShowSignaturesModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer"
+              title="Tùy chỉnh 4 cột chữ ký in dưới biên bản kiểm kê C53-HD"
+            >
+              <Users className="w-4 h-4 text-blue-600" /> Cấu hình Người ký C53-HD
             </button>
 
             <button
@@ -690,34 +724,32 @@ export default function Inventory() {
           <div className="grid grid-cols-4 gap-4 text-center font-sans">
             {/* Cột 1: Tổ kiểm kê */}
             <div>
-              <div className="font-bold uppercase text-slate-900">Thành viên tổ kiểm kê</div>
+              <div className="font-bold uppercase text-slate-900">{signatures.membersTitle}</div>
               <div className="text-[11px] italic text-slate-500 mb-14">(Ký, ghi rõ họ tên)</div>
-              <div className="text-left text-xs text-slate-700 space-y-1 font-sans pl-2">
-                {teamMembers.slice(0, 5).map(m => (
-                  <div key={m.id}>- {m.fullName}</div>
-                ))}
+              <div className="text-left text-xs text-slate-700 space-y-1 font-sans pl-2 whitespace-pre-line">
+                {signatures.membersList}
               </div>
             </div>
 
             {/* Cột 2: Đại diện Khoa/Phòng / Tổ trưởng chuyên trách */}
             <div>
-              <div className="font-bold uppercase text-slate-900">{teamLeader.titleRole}</div>
+              <div className="font-bold uppercase text-slate-900">{signatures.leaderTitle}</div>
               <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
-              <div className="font-bold text-slate-800">{teamLeader.fullName}</div>
+              <div className="font-bold text-slate-800">{signatures.leaderName}</div>
             </div>
 
             {/* Cột 3: Trưởng phòng TCKT */}
             <div>
-              <div className="font-bold uppercase text-slate-900">{memberTCKT.position}</div>
+              <div className="font-bold uppercase text-slate-900">{signatures.tcktTitle}</div>
               <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
-              <div className="font-bold text-slate-800">{memberTCKT.fullName}</div>
+              <div className="font-bold text-slate-800">{signatures.tcktName}</div>
             </div>
 
             {/* Cột 4: Giám đốc / Chủ tịch Hội đồng */}
             <div>
-              <div className="font-bold uppercase text-slate-900">Chủ tịch Hội đồng</div>
+              <div className="font-bold uppercase text-slate-900">{signatures.presidentTitle}</div>
               <div className="text-[11px] italic text-slate-500 mb-20">(Ký, đóng dấu)</div>
-              <div className="font-bold text-slate-800">{president.fullName}</div>
+              <div className="font-bold text-slate-800">{signatures.presidentName}</div>
             </div>
           </div>
         </div>
@@ -870,11 +902,188 @@ export default function Inventory() {
             <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setShowCommitteeModal(false)}
-                className="px-5 py-2 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl"
+                className="px-5 py-2 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl cursor-pointer"
               >
                 Đóng & Áp dụng biểu mẫu
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: TÙY CHỈNH 4 CỘT CHỮ KÝ DƯỚI BIÊN BẢN KIỂM KÊ C53-HD             */}
+      {/* ========================================================================= */}
+      {showSignaturesModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Cấu Hình 4 Vị Trí Ký Dưới Biên Bản C53-HD</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Tùy chỉnh chức danh & danh sách họ tên người ký in trên bản A4</p>
+              </div>
+              <button onClick={() => setShowSignaturesModal(false)} className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                handleSaveSignatures(signatures);
+              }}
+              className="space-y-4 text-xs"
+            >
+              {/* Quick Presets */}
+              <div className="flex flex-wrap items-center gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[11px] font-bold text-slate-600 mr-1">Gợi ý nhanh theo khối:</span>
+                <button
+                  type="button"
+                  onClick={() => setSignatures({
+                    ...signatures,
+                    leaderTitle: 'TỔ TRƯỞNG TỔ CNTT',
+                    leaderName: 'KTV. Phan Thanh Hoàn'
+                  })}
+                  className="px-2 py-1 bg-blue-100 text-blue-800 rounded-lg font-bold text-[11px] hover:bg-blue-200 cursor-pointer"
+                >
+                  💻 Khối CNTT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSignatures({
+                    ...signatures,
+                    leaderTitle: 'TRƯỞNG KHOA DƯỢC - VTYT',
+                    leaderName: 'DS. Mai Thị Tính'
+                  })}
+                  className="px-2 py-1 bg-emerald-100 text-emerald-800 rounded-lg font-bold text-[11px] hover:bg-emerald-200 cursor-pointer"
+                >
+                  🩺 Khối Dược (TBYT)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSignatures({
+                    ...signatures,
+                    leaderTitle: 'TRƯỞNG PHÒNG TỔ CHỨC - HÀNH CHÍNH',
+                    leaderName: 'Ông. Trần Liên'
+                  })}
+                  className="px-2 py-1 bg-amber-100 text-amber-800 rounded-lg font-bold text-[11px] hover:bg-amber-200 cursor-pointer"
+                >
+                  🏢 Khối TCHC
+                </button>
+              </div>
+
+              {/* 1. Cột 1: Tổ kiểm kê */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="font-bold text-slate-800">1. Cột 1 (Thành viên Tổ kiểm kê)</div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Tiêu đề cột</label>
+                  <input
+                    type="text"
+                    value={signatures.membersTitle}
+                    onChange={e => setSignatures({ ...signatures, membersTitle: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Danh sách thành viên (Mỗi người 1 dòng)</label>
+                  <textarea
+                    rows={4}
+                    value={signatures.membersList}
+                    onChange={e => setSignatures({ ...signatures, membersList: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white font-mono text-[11px]"
+                  />
+                </div>
+              </div>
+
+              {/* 2. Cột 2: Tổ trưởng / Đại diện đơn vị */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="font-bold text-slate-800">2. Cột 2 (Tổ trưởng chuyên trách / Đại diện Khoa Phòng)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Chức danh</label>
+                    <input
+                      type="text"
+                      value={signatures.leaderTitle}
+                      onChange={e => setSignatures({ ...signatures, leaderTitle: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Họ và tên</label>
+                    <input
+                      type="text"
+                      value={signatures.leaderName}
+                      onChange={e => setSignatures({ ...signatures, leaderName: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Cột 3: Phòng TCKT */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="font-bold text-slate-800">3. Cột 3 (Đại diện Phòng Tài chính - Kế toán)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Chức danh</label>
+                    <input
+                      type="text"
+                      value={signatures.tcktTitle}
+                      onChange={e => setSignatures({ ...signatures, tcktTitle: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Họ và tên</label>
+                    <input
+                      type="text"
+                      value={signatures.tcktName}
+                      onChange={e => setSignatures({ ...signatures, tcktName: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Cột 4: Chủ tịch Hội đồng */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="font-bold text-slate-800">4. Cột 4 (Chủ tịch Hội đồng kiểm kê / Giám đốc)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Chức danh</label>
+                    <input
+                      type="text"
+                      value={signatures.presidentTitle}
+                      onChange={e => setSignatures({ ...signatures, presidentTitle: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Họ và tên</label>
+                    <input
+                      type="text"
+                      value={signatures.presidentName}
+                      onChange={e => setSignatures({ ...signatures, presidentName: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowSignaturesModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Lưu Cấu Hình Người Ký
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
