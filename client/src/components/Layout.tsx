@@ -3,81 +3,91 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Monitor, ArrowLeftRight, Wrench,
   ClipboardList, Trash2, TrendingDown, Award, QrCode,
-  Building2, Menu, X, LogOut, User as UserIcon, Shield,
-  Stethoscope, ChevronDown, Check
+  Building2, Menu, X, LogOut, User as UserIcon
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const QUICK_SWITCH_USERS = [
-  { username: 'admin', name: 'Admin Tối Cao (Ban Giám Đốc)', role: 'ADMIN', badge: 'Admin Tối Cao', color: 'bg-rose-100 text-rose-800' },
-  { username: 'manager_duoc', name: 'Quản Lý Tài Sản - Khoa Dược', role: 'MANAGER_DUOC', badge: 'Quản Lý Dược (TBYT)', color: 'bg-emerald-100 text-emerald-800' },
-  { username: 'manager_cntt', name: 'Quản Lý Tài Sản - Tổ CNTT', role: 'MANAGER_CNTT', badge: 'Quản Lý Tổ CNTT', color: 'bg-blue-100 text-blue-800' },
-  { username: 'manager_tchc', name: 'Quản Lý Tài Sản - Phòng TCHC', role: 'MANAGER_TCHC', badge: 'Quản Lý Phòng TCHC', color: 'bg-amber-100 text-amber-800' },
-  { username: 'pkdk', name: 'Phòng Khám Đa Khoa', role: 'DEPARTMENT', deptId: 1, badge: 'Khoa/Phòng (Người dùng)', color: 'bg-slate-100 text-slate-800' },
-  { username: 'xn', name: 'Khoa Xét Nghiệm - CĐHA - TDCN', role: 'DEPARTMENT', deptId: 2, badge: 'Khoa/Phòng (Người dùng)', color: 'bg-slate-100 text-slate-800' },
-  { username: 'khnv', name: 'Phòng Kế Hoạch Nghiệp Vụ', role: 'DEPARTMENT', deptId: 7, badge: 'Khoa/Phòng (Người dùng)', color: 'bg-slate-100 text-slate-800' },
-  { username: 'hiv', name: 'Khoa HIV/AIDS và QLĐTNC', role: 'DEPARTMENT', deptId: 12, badge: 'Khoa/Phòng (Người dùng)', color: 'bg-slate-100 text-slate-800' }
-];
-
 export default function Layout() {
-  const { user, logout, login } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showSwitchMenu, setShowSwitchMenu] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const handleQuickSwitch = (target: typeof QUICK_SWITCH_USERS[0]) => {
-    login(`token-${target.username}`, {
-      id: 99,
-      username: target.username,
-      fullName: target.name,
-      role: target.role as any,
-      departmentId: (target as any).deptId || undefined
-    });
-    setShowSwitchMenu(false);
-  };
-
   const getRoleLabel = () => {
     if (!user) return 'Khách';
-    if (user.role === 'ADMIN') return '👑 Admin Tối Cao';
-    if (user.role === 'MANAGER_DUOC') return '🩺 Quản Lý Dược (TBYT)';
-    if (user.role === 'MANAGER_CNTT') return '💻 Quản Lý Tổ CNTT';
-    if (user.role === 'MANAGER_TCHC') return '🏢 Quản Lý Phòng TCHC';
-    return `🏢 Khoa / Phòng`;
+    if (user.role === 'ADMIN') return '👑 Quản Trị Viên Tối Cao';
+    if (user.role === 'MANAGER_DUOC') return '🩺 Quản Lý Tài Sản - Khoa Dược';
+    if (user.role === 'MANAGER_CNTT') return '💻 Quản Lý Tài Sản - Tổ CNTT';
+    if (user.role === 'MANAGER_TCHC') return '🏢 Quản Lý Tài Sản - Phòng TCHC';
+    return `🏢 ${user.department?.name || 'Khoa / Phòng'}`;
   };
 
-  // Nav Items configured by Role
+  // Nav Items configured strictly by Role
   const isDeptUser = user?.role === 'DEPARTMENT';
+  const isCnttManager = user?.role === 'MANAGER_CNTT';
   const isDuocManager = user?.role === 'MANAGER_DUOC';
+  const isTchcManager = user?.role === 'MANAGER_TCHC';
+  const isAdmin = user?.role === 'ADMIN';
 
   const navItems = [
-    { to: '/', icon: LayoutDashboard, label: 'Trang chủ' },
+    { 
+      to: '/', 
+      icon: LayoutDashboard, 
+      label: isCnttManager ? 'Dashboard CNTT' : 
+             isDuocManager ? 'Dashboard Dược (TBYT)' : 
+             isTchcManager ? 'Dashboard TCHC' : 
+             isDeptUser ? 'Tổng quan khoa' : 'Trang chủ' 
+    },
     { 
       to: '/assets', 
       icon: Monitor, 
-      label: isDeptUser ? 'Tài sản khoa phòng' : 'Quản lý thiết bị' 
+      label: isCnttManager ? 'Thiết bị CNTT' : 
+             isDuocManager ? 'Trang thiết bị Y tế' : 
+             isTchcManager ? 'Tài sản TCHC & Tòa nhà' : 
+             isDeptUser ? 'Tài sản khoa phòng' : 'Quản lý thiết bị' 
     },
-    { to: '/maintenance', icon: Wrench, label: isDeptUser ? 'Báo hỏng thiết bị' : 'Báo hỏng & Sửa chữa' },
-    { to: '/transfers', icon: ArrowLeftRight, label: isDeptUser ? 'Lịch sử điều chuyển' : 'Điều chuyển' },
-    { to: '/disposals', icon: Trash2, label: isDeptUser ? 'Đề xuất thanh lý' : 'Hội đồng thanh lý' },
-    { to: '/inventory', icon: ClipboardList, label: isDeptUser ? 'Biên bản kiểm kê' : 'Kiểm kê tài sản' },
+    { 
+      to: '/maintenance', 
+      icon: Wrench, 
+      label: isCnttManager ? 'Báo hỏng & Sửa CNTT' : 
+             isDuocManager ? 'Sửa chữa & Bảo trì TBYT' : 
+             isTchcManager ? 'Sửa chữa điện & CSVC' : 
+             isDeptUser ? 'Báo hỏng thiết bị' : 'Báo hỏng & Sửa chữa' 
+    },
+    { 
+      to: '/transfers', 
+      icon: ArrowLeftRight, 
+      label: isDeptUser ? 'Lịch sử điều chuyển' : 'Điều chuyển tài sản' 
+    },
+    { 
+      to: '/disposals', 
+      icon: Trash2, 
+      label: isDeptUser ? 'Đề xuất thanh lý' : 'Thanh lý tài sản' 
+    },
+    { 
+      to: '/inventory', 
+      icon: ClipboardList, 
+      label: isDeptUser ? 'Biên bản kiểm kê' : 'Kiểm kê tài sản' 
+    },
     { to: '/qr-scanner', icon: QrCode, label: 'Quét mã QR' },
   ];
 
-  // Additional specialist menus for Manager & Admin
-  if (!isDeptUser || isDuocManager) {
+  // Only Dược and Admin have ISO 17025 Calibration module
+  if (isDuocManager || isAdmin) {
     navItems.push({ to: '/calibration', icon: Award, label: 'Hiệu chuẩn TBYT' });
   }
 
-  if (user?.role === 'ADMIN' || !isDeptUser) {
+  // Admin / Specialists have Depreciation calculation
+  if (isAdmin || isDuocManager || isTchcManager) {
     navItems.push({ to: '/depreciation', icon: TrendingDown, label: 'Tính khấu hao' });
   }
 
-  if (user?.role === 'ADMIN') {
+  // Admin only
+  if (isAdmin) {
     navItems.push({ to: '/departments', icon: Building2, label: 'Quản lý khoa/phòng' });
   }
 
@@ -125,52 +135,17 @@ export default function Layout() {
             </button>
           </div>
 
-          {/* User Profile Card & Quick Role Switcher */}
-          <div className="p-3.5 border-b border-slate-100 bg-slate-50/60 relative">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 bg-white rounded-xl text-blue-600 border border-slate-200 shadow-2xs shrink-0">
-                  <UserIcon className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-900 truncate">{user?.fullName}</p>
-                  <p className="text-[10px] font-semibold text-slate-500 truncate mt-0.5">{getRoleLabel()}</p>
-                </div>
+          {/* User Profile Card */}
+          <div className="p-3.5 border-b border-slate-100 bg-slate-50/60">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 bg-white rounded-xl text-blue-600 border border-slate-200 shadow-2xs shrink-0">
+                <UserIcon className="w-4 h-4" />
               </div>
-
-              {/* Dropdown switch button */}
-              <button
-                onClick={() => setShowSwitchMenu(!showSwitchMenu)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
-                title="Đổi nhanh phân quyền để test"
-              >
-                <ChevronDown className="w-3.5 h-3.5" />
-              </button>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 truncate">{user?.fullName}</p>
+                <p className="text-[10px] font-semibold text-slate-500 truncate mt-0.5">{getRoleLabel()}</p>
+              </div>
             </div>
-
-            {/* Role Switcher Dropdown */}
-            {showSwitchMenu && (
-              <div className="absolute left-2 right-2 top-full mt-1 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-2 space-y-1 text-xs">
-                <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
-                  Chuyển quyền nhanh để thử nghiệm:
-                </div>
-                {QUICK_SWITCH_USERS.map(target => (
-                  <button
-                    key={target.username}
-                    onClick={() => handleQuickSwitch(target)}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-xl flex items-center justify-between transition cursor-pointer ${
-                      user?.username === target.username ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div className="truncate">
-                      <div>{target.name}</div>
-                      <div className="text-[10px] text-slate-400 font-normal">{target.badge}</div>
-                    </div>
-                    {user?.username === target.username && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Navigation Links */}

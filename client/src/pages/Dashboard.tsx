@@ -10,66 +10,29 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import { Asset, STATUS_LABELS, STATUS_COLORS } from '../types';
 
 const DONUT_COLORS = ['#0284C7', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1'];
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>({
-    totalAssets: 3684,
-    dangSuDung: 3490,
-    baoTri: 134,
-    choPhanBo: 32,
-    choThanhLy: 14,
+    totalAssets: 0,
+    dangSuDung: 0,
+    baoTri: 0,
+    choPhanBo: 0,
+    choThanhLy: 0,
     daThanhLy: 0,
-    totalValue: 149242868333,
-    managingUnits: {
-      duoc: { total: 1497 },
-      cntt: { total: 896 },
-      tchc: { total: 1291, toanha: 997, hanhchinh: 294 }
-    },
-    badges: [
-      { name: 'Khối TBYT (Khoa Dược)', count: 1497, percent: 41 },
-      { name: 'Khối CNTT', count: 896, percent: 24 },
-      { name: 'TCHC (Hạ tầng tòa nhà)', count: 997, percent: 27 },
-      { name: 'TCHC (Hành chính)', count: 294, percent: 8 },
-      { name: 'PC / Máy để bàn', count: 499, percent: 14 },
-      { name: 'Laptop', count: 147, percent: 4 },
-      { name: 'Máy in / Scan', count: 163, percent: 4 },
-    ]
+    totalValue: 0,
+    badges: []
   });
 
-  const [categoryData, setCategoryData] = useState<any[]>([
-    { name: 'Trang thiết bị Y tế (Khoa Dược)', count: 1497, value: 1497 },
-    { name: 'Cơ sở vật chất tòa nhà (TCHC)', count: 997, value: 997 },
-    { name: 'Thiết bị CNTT (Tổ CNTT)', count: 896, value: 896 },
-    { name: 'Thiết bị Hành chính (TCHC)', count: 294, value: 294 },
-  ]);
-
-  const [deptData, setDeptData] = useState<any[]>([
-    { name: 'TCHC', fullName: 'Phòng TCHC & Tòa nhà', count: 1339 },
-    { name: 'XN', fullName: 'Khoa Xét Nghiệm', count: 683 },
-    { name: 'PKĐK', fullName: 'Phòng Khám Đa Khoa', count: 423 },
-    { name: 'HIV', fullName: 'Khoa HIV/AIDS', count: 228 },
-    { name: 'TCKT', fullName: 'Phòng TCKT', count: 183 },
-    { name: 'DVTYT', fullName: 'Khoa Dược - VTYT', count: 174 },
-    { name: 'BNN', fullName: 'Khoa Bệnh Nghề Nghiệp', count: 117 },
-    { name: 'TTGDSK', fullName: 'Khoa TTGDSK', count: 109 },
-    { name: 'KDYTQT', fullName: 'Khoa KDYTQT', count: 100 },
-    { name: 'KSTCT', fullName: 'Khoa Ký Sinh Trùng', count: 65 },
-  ]);
-
-  const [trendData, setTrendData] = useState<any[]>([
-    { month: 'T3/2026', total: 3100 },
-    { month: 'T4/2026', total: 3250 },
-    { month: 'T5/2026', total: 3380 },
-    { month: 'T6/2026', total: 3500 },
-    { month: 'T7/2026', total: 3620 },
-    { month: 'T8/2026', total: 3684 },
-  ]);
-
+  const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [deptData, setDeptData] = useState<any[]>([]);
+  const [trendData, setTrendData] = useState<any[]>([]);
   const [recentAssets, setRecentAssets] = useState<Asset[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUnit, setSelectedUnit] = useState('');
@@ -112,6 +75,11 @@ export default function Dashboard() {
     loadData();
   }, []);
 
+  const isCntt = user?.role === 'MANAGER_CNTT';
+  const isDuoc = user?.role === 'MANAGER_DUOC';
+  const isTchc = user?.role === 'MANAGER_TCHC';
+  const isAdmin = !user || user.role === 'ADMIN';
+
   return (
     <div className="space-y-6 pb-12">
       {/* Top Welcome & Quick Actions */}
@@ -119,17 +87,26 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">CDC Đà Nẵng</span>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Bảng điều khiển & Quản lý tài sản</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              {isCntt ? 'Bảng Điều Khiển Thiết Bị CNTT' :
+               isDuoc ? 'Bảng Điều Khiển Trang Thiết Bị Y Tế' :
+               isTchc ? 'Bảng Điều Khiển Tài Sản & Tòa Nhà TCHC' :
+               user?.role === 'DEPARTMENT' ? `Tổng Quan Tài Sản - ${user.fullName}` :
+               'Bảng Điều Khiển & Quản Lý Tài Sản'}
+            </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Hệ thống quản trị tài sản phân cấp 3 khối: <strong>Khoa Dược (TBYT)</strong>, <strong>Tổ CNTT</strong> và <strong>Phòng TCHC (Hành chính & Tòa nhà)</strong>
+            {isCntt ? 'Phân hệ quản lý chuyên trách: 713 thiết bị CNTT (Bộ máy vi tính, Laptop, Máy in/Scan, Mạng) tại 16 khoa/phòng' :
+             isDuoc ? 'Phân hệ quản lý chuyên trách: 1.497 Trang thiết bị Y tế & Hồ sơ Hiệu chuẩn ISO 17025' :
+             isTchc ? 'Phân hệ quản lý chuyên trách: 1.291 Tài sản Hành chính, CCDC & Hạ tầng 8 tầng' :
+             'Hệ thống quản trị tài sản toàn trung tâm: Khoa Dược (1.497), Tổ CNTT (713) và Phòng TCHC (1.291)'}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button 
             onClick={loadData}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm transition"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm transition cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Làm mới
@@ -137,88 +114,119 @@ export default function Dashboard() {
           
           <button 
             onClick={() => navigate('/assets/new')}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow transition"
+            className="flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            Thêm thiết bị
+            {isCntt ? 'Thêm thiết bị CNTT' : 'Thêm thiết bị'}
           </button>
         </div>
       </div>
 
-      {/* 3 PRIMARY MANAGING DIVISIONS (3 Khối Quản lý Tài Sản Chính) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Khối 1: Khoa Dược (TBYT) */}
-        <div 
-          onClick={() => navigate('/assets?managingUnit=DUOC')}
-          className="group relative bg-gradient-to-br from-emerald-500 to-teal-700 rounded-2xl p-5 text-white shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden"
-        >
-          <div className="flex justify-between items-start">
-            <div className="p-3 bg-white/15 rounded-xl backdrop-blur-sm">
-              <Stethoscope className="w-6 h-6 text-white" />
+      {/* ADMIN ONLY: 3 PRIMARY MANAGING DIVISIONS */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Khối 1: Khoa Dược (TBYT) */}
+          <div 
+            onClick={() => navigate('/assets?managingUnit=DUOC')}
+            className="group relative bg-gradient-to-br from-emerald-500 to-teal-700 rounded-2xl p-5 text-white shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden"
+          >
+            <div className="flex justify-between items-start">
+              <div className="p-3 bg-white/15 rounded-xl backdrop-blur-sm">
+                <Stethoscope className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 bg-white/20 rounded-full">Khoa Dược chủ trì</span>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-white/20 rounded-full">Khoa Dược chủ trì</span>
+            <div className="mt-4">
+              <div className="text-xs text-emerald-100 font-medium uppercase tracking-wider">Trang thiết bị Y tế chuyên dụng</div>
+              <div className="text-3xl font-extrabold mt-1">1,497 <span className="text-sm font-normal text-emerald-200">máy/thiết bị</span></div>
+              <p className="text-xs text-emerald-100 mt-2 line-clamp-1">
+                Xét nghiệm, Siêu âm, X-Quang, Vắc xin, Đo y tế tại 16 khoa
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-xs font-semibold text-emerald-100 group-hover:text-white">
+              <span>Xem danh mục TBYT</span>
+              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition" />
+            </div>
           </div>
-          <div className="mt-4">
-            <div className="text-xs text-emerald-100 font-medium uppercase tracking-wider">Trang thiết bị Y tế chuyên dụng</div>
-            <div className="text-3xl font-extrabold mt-1">1,497 <span className="text-sm font-normal text-emerald-200">máy/thiết bị</span></div>
-            <p className="text-xs text-emerald-100 mt-2 line-clamp-1">
-              Xét nghiệm, Siêu âm, X-Quang, Vắc xin, Đo y tế tại 16 khoa
-            </p>
-          </div>
-          <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-xs font-semibold text-emerald-100 group-hover:text-white">
-            <span>Xem danh mục TBYT</span>
-            <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition" />
-          </div>
-        </div>
 
-        {/* Khối 2: Tổ CNTT */}
-        <div 
-          onClick={() => navigate('/assets?managingUnit=CNTT')}
-          className="group relative bg-gradient-to-br from-blue-600 to-indigo-800 rounded-2xl p-5 text-white shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden"
-        >
-          <div className="flex justify-between items-start">
-            <div className="p-3 bg-white/15 rounded-xl backdrop-blur-sm">
-              <Monitor className="w-6 h-6 text-white" />
+          {/* Khối 2: Tổ CNTT */}
+          <div 
+            onClick={() => navigate('/assets?managingUnit=CNTT')}
+            className="group relative bg-gradient-to-br from-blue-600 to-indigo-800 rounded-2xl p-5 text-white shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden"
+          >
+            <div className="flex justify-between items-start">
+              <div className="p-3 bg-white/15 rounded-xl backdrop-blur-sm">
+                <Monitor className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 bg-white/20 rounded-full">Tổ CNTT chủ trì</span>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-white/20 rounded-full">Tổ CNTT chủ trì</span>
+            <div className="mt-4">
+              <div className="text-xs text-blue-100 font-medium uppercase tracking-wider">Thiết bị Công nghệ thông tin</div>
+              <div className="text-3xl font-extrabold mt-1">713 <span className="text-sm font-normal text-blue-200">thiết bị</span></div>
+              <p className="text-xs text-blue-100 mt-2 line-clamp-1">
+                282 Bộ máy vi tính, 25 Laptop, 232 Máy in/Scan, Mạng & Server
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-xs font-semibold text-blue-100 group-hover:text-white">
+              <span>Xem danh mục CNTT</span>
+              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition" />
+            </div>
           </div>
-          <div className="mt-4">
-            <div className="text-xs text-blue-100 font-medium uppercase tracking-wider">Thiết bị Công nghệ thông tin</div>
-            <div className="text-3xl font-extrabold mt-1">896 <span className="text-sm font-normal text-blue-200">thiết bị</span></div>
-            <p className="text-xs text-blue-100 mt-2 line-clamp-1">
-              499 PC, 147 Laptop, 163 Máy in/Scan, Mạng & Server
-            </p>
-          </div>
-          <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-xs font-semibold text-blue-100 group-hover:text-white">
-            <span>Xem danh mục CNTT</span>
-            <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition" />
-          </div>
-        </div>
 
-        {/* Khối 3: Phòng TCHC */}
-        <div 
-          onClick={() => navigate('/assets?managingUnit=TCHC')}
-          className="group relative bg-gradient-to-br from-amber-500 to-orange-700 rounded-2xl p-5 text-white shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden"
-        >
-          <div className="flex justify-between items-start">
-            <div className="p-3 bg-white/15 rounded-xl backdrop-blur-sm">
-              <Building2 className="w-6 h-6 text-white" />
+          {/* Khối 3: Phòng TCHC */}
+          <div 
+            onClick={() => navigate('/assets?managingUnit=TCHC')}
+            className="group relative bg-gradient-to-br from-amber-500 to-orange-700 rounded-2xl p-5 text-white shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden"
+          >
+            <div className="flex justify-between items-start">
+              <div className="p-3 bg-white/15 rounded-xl backdrop-blur-sm">
+                <Building2 className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 bg-white/20 rounded-full">Phòng TCHC chủ trì</span>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-white/20 rounded-full">Phòng TCHC chủ trì</span>
-          </div>
-          <div className="mt-4">
-            <div className="text-xs text-amber-100 font-medium uppercase tracking-wider">Hành chính & Hạ tầng Tòa nhà</div>
-            <div className="text-3xl font-extrabold mt-1">1,291 <span className="text-sm font-normal text-amber-200">tài sản</span></div>
-            <p className="text-xs text-amber-100 mt-2 line-clamp-1">
-              294 TB hành chính + 997 hạ tầng theo 8 tầng (T.Hầm, T1-T7)
-            </p>
-          </div>
-          <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-xs font-semibold text-amber-100 group-hover:text-white">
-            <span>Xem danh mục TCHC & Tòa nhà</span>
-            <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition" />
+            <div className="mt-4">
+              <div className="text-xs text-amber-100 font-medium uppercase tracking-wider">Hành chính & Hạ tầng Tòa nhà</div>
+              <div className="text-3xl font-extrabold mt-1">1,291 <span className="text-sm font-normal text-amber-200">tài sản</span></div>
+              <p className="text-xs text-amber-100 mt-2 line-clamp-1">
+                294 TB hành chính + 997 hạ tầng theo 8 tầng (T.Hầm, T1-T7)
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-xs font-semibold text-amber-100 group-hover:text-white">
+              <span>Xem danh mục TCHC & Tòa nhà</span>
+              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition" />
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* MANAGER CNTT DEDICATED BANNER */}
+      {isCntt && (
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-800 rounded-3xl p-6 text-white shadow-md">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3.5 bg-white/15 rounded-2xl backdrop-blur-sm">
+                <Monitor className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/20 text-white uppercase tracking-wider">
+                  Khối Chuyên Trách: Tổ Công Nghệ Thông Tin
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black mt-1">Tổng Quan 713 Thiết Bị CNTT Toàn Trung Tâm</h2>
+                <p className="text-xs text-blue-100 mt-0.5">
+                  Bao gồm 282 Bộ máy vi tính (Màn hình + CPU), 25 Laptop, 232 Máy in/Scan, 174 Thiết bị mạng & Server tại 16 khoa/phòng
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/assets')}
+              className="px-4 py-2.5 bg-white text-blue-800 rounded-xl text-xs font-bold shadow hover:bg-blue-50 transition cursor-pointer flex items-center gap-1.5 shrink-0"
+            >
+              <span>Xem danh sách 713 thiết bị CNTT</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Overview Stat Cards (5 cards) */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -283,11 +291,18 @@ export default function Dashboard() {
 
       {/* 3 Analytics Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 1. Pie Chart: 3 Management Divisions */}
+        {/* 1. Pie Chart: 3 Management Divisions / CNTT Subcategories */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
           <div>
-            <h3 className="font-bold text-sm text-slate-900 mb-1">Cơ cấu theo 3 khối quản lý</h3>
-            <p className="text-xs text-slate-400">Tỉ trọng tài sản Dược, CNTT và TCHC</p>
+            <h3 className="font-bold text-sm text-slate-900 mb-1">
+              {isCntt ? 'Cơ cấu 4 nhóm thiết bị CNTT' : 
+               isDuoc ? 'Cơ cấu Trang thiết bị Y tế' : 
+               isTchc ? 'Cơ cấu Tài sản TCHC' : 
+               'Cơ cấu theo 3 khối quản lý'}
+            </h3>
+            <p className="text-xs text-slate-400">
+              {isCntt ? 'Tỷ trọng PC, Laptop, Máy in/Scan và Mạng' : 'Tỉ trọng tài sản Dược, CNTT và TCHC'}
+            </p>
           </div>
           
           <div className="h-56 my-2">
@@ -327,8 +342,12 @@ export default function Dashboard() {
         {/* 2. Bar Chart: Top Departments */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
           <div>
-            <h3 className="font-bold text-sm text-slate-900 mb-1">Tài sản theo đơn vị sử dụng (Top 8)</h3>
-            <p className="text-xs text-slate-400">Khoa / phòng có số lượng thiết bị lớn</p>
+            <h3 className="font-bold text-sm text-slate-900 mb-1">
+              {isCntt ? 'Phân bổ 713 thiết bị CNTT theo khoa/phòng' : 'Tài sản theo đơn vị sử dụng (Top 8)'}
+            </h3>
+            <p className="text-xs text-slate-400">
+              {isCntt ? 'Số lượng thiết bị CNTT các khoa đang trực tiếp sử dụng' : 'Khoa / phòng có số lượng thiết bị lớn'}
+            </p>
           </div>
 
           <div className="h-64 my-2">

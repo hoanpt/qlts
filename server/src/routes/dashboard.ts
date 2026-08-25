@@ -84,8 +84,21 @@ router.get('/stats', requireAuth, async (req: any, res) => {
   }
 });
 
-router.get('/by-category', requireAuth, async (req, res) => {
+router.get('/by-category', requireAuth, async (req: any, res) => {
   try {
+    if (req.user?.role === 'MANAGER_CNTT') {
+      const pcCount = await prisma.asset.count({ where: { managingUnit: 'CNTT', OR: [{ name: { contains: 'máy tính' } }, { name: { contains: 'PC' } }, { name: { contains: 'vi tính' } }, { name: { contains: 'FPT' } }] } });
+      const laptopCount = await prisma.asset.count({ where: { managingUnit: 'CNTT', OR: [{ name: { contains: 'laptop' } }, { name: { contains: 'Dell' } }, { name: { contains: 'HP' } }, { name: { contains: 'notebook' } }] } });
+      const mayInCount = await prisma.asset.count({ where: { managingUnit: 'CNTT', OR: [{ name: { contains: 'máy in' } }, { name: { contains: 'canon' } }, { name: { contains: 'printer' } }] } });
+      const networkCount = await prisma.asset.count({ where: { managingUnit: 'CNTT', OR: [{ name: { contains: 'mạng' } }, { name: { contains: 'switch' } }, { name: { contains: 'router' } }, { name: { contains: 'wifi' } }] } });
+      return res.json([
+        { name: 'Bộ máy vi tính (Màn hình + CPU)', count: pcCount },
+        { name: 'Laptop / Máy xách tay', count: laptopCount },
+        { name: 'Máy in & Máy Scan', count: mayInCount },
+        { name: 'Thiết bị mạng & Server', count: networkCount }
+      ]);
+    }
+
     const tchcToanha = await prisma.asset.count({ where: { managingUnit: 'TCHC', buildingAsset: 1 } });
     const tchcHanhchinh = await prisma.asset.count({ where: { managingUnit: 'TCHC', buildingAsset: 0 } });
     const duocTotal = await prisma.asset.count({ where: { managingUnit: 'DUOC' } });
@@ -103,18 +116,32 @@ router.get('/by-category', requireAuth, async (req, res) => {
   }
 });
 
-router.get('/by-department', requireAuth, async (req, res) => {
+router.get('/by-department', requireAuth, async (req: any, res) => {
   try {
+    const managingUnit = req.user?.role === 'MANAGER_CNTT' ? 'CNTT' :
+                         req.user?.role === 'MANAGER_DUOC' ? 'DUOC' :
+                         req.user?.role === 'MANAGER_TCHC' ? 'TCHC' : undefined;
+
     const departments = await prisma.department.findMany({
-      include: { _count: { select: { assets: true } } },
-      orderBy: { assets: { _count: 'desc' } },
-      take: 12
+      include: {
+        _count: {
+          select: {
+            assets: managingUnit ? { where: { managingUnit } } : true
+          }
+        }
+      },
+      orderBy: { id: 'asc' }
     });
-    const data = departments.map(d => ({
-      name: d.code,
-      fullName: d.name,
-      count: d._count.assets
-    }));
+
+    const data = departments
+      .filter(d => d._count.assets > 0)
+      .map(d => ({
+        name: d.code,
+        fullName: d.name,
+        count: d._count.assets
+      }))
+      .sort((a, b) => b.count - a.count);
+
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
