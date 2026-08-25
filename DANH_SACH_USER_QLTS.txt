@@ -1,0 +1,64 @@
+====================================================================================================
+               HỆ THỐNG QUẢN LÝ TÀI SẢN & TRANG THIẾT BỊ - CDC ĐÀ NẴNG
+                       DANH SÁCH TÀI KHOẢN TRUY CẬP VÀ PHÂN QUYỀN
+====================================================================================================
+
+I. TÀI KHOẢN QUẢN TRỊ VIÊN TỐI CAO (BAN GIÁM ĐỐC / ADMIN)
+----------------------------------------------------------------------------------------------------
+1. Username : admin
+   Password : admin123
+   Họ và tên: Quản Trị Viên Tối Cao (Ban Giám Đốc)
+   Vai trò  : ADMIN
+   Quyền hạn: Toàn quyền hệ thống (3.501 tài sản, 16 khoa/phòng, phê duyệt điều chuyển, 
+              phê duyệt thanh lý, quản lý khoa phòng, cấu hình hội đồng kiểm kê).
+
+====================================================================================================
+II. TÀI KHOẢN NGƯỜI QUẢN LÝ TÀI SẢN CHUYÊN TRÁCH (3 KHỐI QUẢN LÝ)
+----------------------------------------------------------------------------------------------------
+2. Username : manager_duoc
+   Password : 123456
+   Họ và tên: Quản Lý Tài Sản - Khoa Dược (TBYT)
+   Vai trò  : MANAGER_DUOC
+   Phụ trách: Quản lý 1.497 Trang thiết bị y tế; Quản lý hồ sơ Hiệu chuẩn/Thử nghiệm/Kiểm định 
+              đạt tiêu chuẩn ISO 17025; Tiếp nhận & phê duyệt bảo trì, sửa chữa TBYT; 
+              Thẩm định tình trạng kỹ thuật thanh lý TBYT.
+
+3. Username : manager_cntt
+   Password : 123456
+   Họ và tên: Quản Lý Tài Sản - Tổ CNTT
+   Vai trò  : MANAGER_CNTT
+   Phụ trách: Quản lý 713 thiết bị CNTT (Bộ máy vi tính, Laptop, Máy in/Scan, Thiết bị mạng, Server);
+              Tiếp nhận, xử lý báo hỏng và thay thế linh kiện CNTT; Thẩm định kỹ thuật thanh lý CNTT.
+
+4. Username : manager_tchc
+   Password : 123456
+   Họ và tên: Quản Lý Tài Sản - Phòng TCHC
+   Vai trò  : MANAGER_TCHC
+   Phụ trách: Quản lý 1.291 tài sản Hành chính & CCDC, cơ sở vật chất hạ tầng tòa nhà 8 tầng;
+              Tiếp nhận xử lý sự cố điện, nước, điều hòa, quạt; Thẩm định thanh lý tài sản hành chính.
+
+====================================================================================================
+III. TÀI KHOẢN 16 KHOA / PHÒNG (NGƯỜI DÙNG BÌNH THƯỜNG)
+(Quyền hạn: Xem danh mục tài sản khoa mình, Báo hỏng thiết bị, Xem luân chuyển, Đề xuất thanh lý)
+----------------------------------------------------------------------------------------------------
+ 5. Username: pkdk        | Password: 123456 | Tên đơn vị: Phòng Khám Đa Khoa
+ 6. Username: xn          | Password: 123456 | Tên đơn vị: Khoa Xét Nghiệm - CĐHA - TDCN
+ 7. Username: bnn         | Password: 123456 | Tên đơn vị: Khoa Bệnh Nghề Nghiệp
+ 8. Username: dd          | Password: 123456 | Tên đơn vị: Khoa Dinh Dưỡng
+ 9. Username: skmt        | Password: 123456 | Tên đơn vị: Khoa Sức Khỏe Môi Trường - YTTH
+10. Username: skss        | Password: 123456 | Tên đơn vị: Khoa Sức Khỏe Sinh Sản
+11. Username: khnv        | Password: 123456 | Tên đơn vị: Phòng Kế Hoạch Nghiệp Vụ
+12. Username: ttgdsk      | Password: 123456 | Tên đơn vị: Khoa Truyền Thông Giáo Dục Sức Khỏe
+13. Username: kstct       | Password: 123456 | Tên đơn vị: Khoa Ký Sinh Trùng - Côn Trùng
+14. Username: pcbkln      | Password: 123456 | Tên đơn vị: Khoa Phòng Chống Bệnh Không Lây Nhiễm
+15. Username: dvtyt       | Password: 123456 | Tên đơn vị: Khoa Dược - Vật Tư Y Tế
+16. Username: hiv         | Password: 123456 | Tên đơn vị: Khoa HIV/AIDS và QLĐTNC
+17. Username: pcbtn       | Password: 123456 | Tên đơn vị: Khoa Phòng Chống Bệnh Truyền Nhiễm
+18. Username: tckt        | Password: 123456 | Tên đơn vị: Phòng Tài Chính - Kế Toán
+19. Username: tchc        | Password: 123456 | Tên đơn vị: Phòng Tổ Chức - Hành Chính
+20. Username: kdytqt      | Password: 123456 | Tên đơn vị: Khoa Kiểm Dịch Y Tế Quốc Tế
+
+====================================================================================================
+Ghi chú:
+- Đổi mật khẩu hoặc tạo thêm người dùng mới tại menu: Quản Trị Hệ Thống (dành cho Admin).
+====================================================================================================
