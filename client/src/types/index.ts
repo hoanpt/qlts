@@ -52,6 +52,8 @@ export interface Asset {
   actualQuantity: number;
   quantityDifference: number;
   source?: string;
+  fundingSource?: string;
+  decisionNumber?: string;
   note?: string;
   qrCode?: string;
   transfers?: AssetTransfer[];
@@ -107,6 +109,15 @@ export interface MaintenanceRequest {
   repairVendor?: string;
   repairNote?: string;
   technicianName?: string; // Tên cán bộ kỹ thuật tiếp nhận / xử lý
+  fundingSource?: string; // Nguồn kinh phí (Thu sự nghiệp, Quỹ PTHĐSN, Ngân sách...)
+  decisionNumber?: string; // Quyết định số 12/QĐ-TTKSBT, 34/QĐ-TTKSBT...
+  maintenanceType?: string;
+  servicePackage?: string;
+  replacementParts?: string;
+  acceptanceMembers?: string;
+  deviceStatusAfter?: string;
+  proposalDate?: string;
+  approvalDate?: string;
   requestDate: string;
   completedDate?: string;
 }
@@ -114,6 +125,8 @@ export interface MaintenanceRequest {
 export interface InventorySession {
   id: number;
   name: string;
+  decisionNumber?: string;
+  fundingSource?: string;
   startDate: string;
   endDate?: string;
   status: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED';
@@ -148,6 +161,12 @@ export interface Disposal {
   approvalDate?: string;
   disposalPrice?: number;
   status: 'PROPOSED' | 'APPROVED' | 'COMPLETED' | 'REJECTED';
+  decisionNumber?: string;
+  fundingSource?: string;
+  campaignName?: string;
+  technicalAssessment?: string;
+  technicalInspector?: string;
+  disposalMethod?: string;
   note?: string;
 }
 

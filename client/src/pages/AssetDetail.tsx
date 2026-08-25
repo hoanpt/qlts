@@ -202,7 +202,7 @@ export default function AssetDetail() {
                 </div>
 
                 <div className="border-t border-slate-100 pt-5">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Thông số & Nguyên giá</h3>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Thông số & Nguyên giá & Nguồn kinh phí</h3>
                   <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
                     <div>
                       <div className="text-xs text-slate-500">Hãng sản xuất / Xuất xứ</div>
@@ -213,6 +213,14 @@ export default function AssetDetail() {
                       <div className="font-bold text-blue-600">
                         {asset.originalPrice ? Number(asset.originalPrice).toLocaleString('vi-VN') + ' đ' : 'Chưa có giá'}
                       </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-500">Nguồn kinh phí hình thành</div>
+                      <div className="font-medium text-slate-800">{asset.fundingSource || asset.source || 'Nguồn ngân sách nhà nước cấp'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-500">Quyết định số / Căn cứ mua sắm</div>
+                      <div className="font-medium text-slate-800">{asset.decisionNumber || 'QĐ số 05/QĐ-TTKSBT'}</div>
                     </div>
                     <div className="col-span-2">
                       <div className="text-xs text-slate-500">Cấu hình / Thông số kỹ thuật / Ghi chú</div>

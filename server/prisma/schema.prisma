@@ -68,6 +68,8 @@ model Asset {
   actualQuantity    Int       @default(1)
   quantityDifference Int      @default(0)
   source            String?   // Nguồn gốc: Ngân sách, Viện trợ, Mua mới...
+  fundingSource     String?   // Nguồn kinh phí (Ngân sách, Quỹ PTHĐSN, Viện trợ...)
+  decisionNumber    String?   // Quyết định mua sắm / trang cấp / phê duyệt
   note              String?
   qrCode            String?   @unique
   transfers         AssetTransfer[]
@@ -131,7 +133,8 @@ model MaintenanceRequest {
   servicePackage   String?   // Gói bảo trì / dịch vụ
   replacementParts String?   // Linh kiện thay thế
   acceptanceMembers String?  // Người nghiệm thu
-  fundingSource    String?   // Nguồn kinh phí (Thu sự nghiệp, Quỹ PTHĐSN...)
+  fundingSource    String?   // Nguồn kinh phí (Thu sự nghiệp, Quỹ PTHĐSN, Ngân sách cấp...)
+  decisionNumber   String?   // Quyết định số 12/QĐ-TTKSBT, 34/QĐ-TTKSBT...
   deviceStatusAfter String?  @default("Tốt")
   proposalDate     DateTime? // Ngày trình phê duyệt
   approvalDate     DateTime?
@@ -144,6 +147,8 @@ model MaintenanceRequest {
 model InventorySession {
   id          Int       @id @default(autoincrement())
   name        String
+  decisionNumber String? // Quyết định thành lập Hội đồng kiểm kê
+  fundingSource  String?
   startDate   DateTime  @default(now())
   endDate     DateTime?
   status      String    @default("OPEN") // OPEN, IN_PROGRESS, COMPLETED
@@ -169,20 +174,39 @@ model InventoryRecord {
 }
 
 model Disposal {
-  id             Int       @id @default(autoincrement())
-  assetId        Int
-  asset          Asset     @relation(fields: [assetId], references: [id])
-  proposedDate   DateTime  @default(now())
-  disposalDate   DateTime?
-  reason         String
-  proposedBy     String?
-  approvedBy     String?
-  approvalDate   DateTime?
-  disposalPrice  Float?
-  status         String    @default("PROPOSED") // PROPOSED, APPROVED, COMPLETED, REJECTED
-  note           String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                  Int       @id @default(autoincrement())
+  assetId             Int
+  asset               Asset     @relation(fields: [assetId], references: [id])
+  proposedDate        DateTime  @default(now())
+  disposalDate        DateTime?
+  reason              String
+  proposedBy          String?
+  approvedBy          String?
+  approvalDate        DateTime?
+  disposalPrice       Float?
+  status              String    @default("PROPOSED") // PROPOSED, APPROVED, COMPLETED, REJECTED
+  decisionNumber      String?   // Quyết định thanh lý / QĐ thành lập HĐ thanh lý
+  fundingSource       String?   // Nộp NSNN / Quỹ PTHĐSN
+  campaignName        String?   // Tên đợt thanh lý
+  technicalAssessment String?   // Thẩm định tình trạng kỹ thuật
+  technicalInspector  String?   // Cán bộ kỹ thuật kiểm tra (Ds. Tính, Cn. Hoàn, Ô. Liên)
+  disposalMethod      String?   // Bán phế liệu, Tiêu hủy, Bán đấu giá
+  note                String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model DisposalCampaign {
+  id           Int       @id @default(autoincrement())
+  title        String
+  campaignCode String?
+  startDate    DateTime  @default(now())
+  endDate      DateTime?
+  status       String    @default("OPEN")
+  description  String?
+  issuedBy     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model Depreciation {

@@ -209,7 +209,10 @@ router.post('/', requireAuth, async (req: any, res) => {
 router.put('/:id/process', requireAuth, async (req: any, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { status, technicianName, repairCost, repairVendor, repairNote } = req.body;
+    const { 
+      status, technicianName, repairCost, repairVendor, repairNote,
+      fundingSource, decisionNumber, servicePackage, replacementParts, acceptanceMembers 
+    } = req.body;
 
     const currentReq = await prisma.maintenanceRequest.findUnique({ where: { id } });
     if (!currentReq) return res.status(404).json({ error: 'Không tìm thấy phiếu yêu cầu' });
@@ -219,7 +222,12 @@ router.put('/:id/process', requireAuth, async (req: any, res) => {
       technicianName: technicianName || req.user?.fullName || null,
       repairNote: repairNote || currentReq.repairNote,
       repairVendor: repairVendor || currentReq.repairVendor,
-      repairCost: repairCost !== undefined && repairCost !== '' ? parseFloat(repairCost) : currentReq.repairCost
+      repairCost: repairCost !== undefined && repairCost !== '' ? parseFloat(repairCost) : currentReq.repairCost,
+      fundingSource: fundingSource !== undefined ? fundingSource : (currentReq as any).fundingSource,
+      decisionNumber: decisionNumber !== undefined ? decisionNumber : (currentReq as any).decisionNumber,
+      servicePackage: servicePackage !== undefined ? servicePackage : (currentReq as any).servicePackage,
+      replacementParts: replacementParts !== undefined ? replacementParts : (currentReq as any).replacementParts,
+      acceptanceMembers: acceptanceMembers !== undefined ? acceptanceMembers : (currentReq as any).acceptanceMembers
     };
 
     if (status === 'COMPLETED') {

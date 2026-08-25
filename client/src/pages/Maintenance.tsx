@@ -55,7 +55,12 @@ export default function Maintenance() {
     technicianName: '',
     repairCost: '',
     repairVendor: '',
-    repairNote: ''
+    repairNote: '',
+    fundingSource: 'Nguồn thu dịch vụ y tế',
+    decisionNumber: '',
+    servicePackage: '',
+    replacementParts: '',
+    acceptanceMembers: ''
   });
 
   const loadData = async () => {
@@ -149,7 +154,12 @@ export default function Maintenance() {
       technicianName: req.technicianName || user?.fullName || '',
       repairCost: req.repairCost ? req.repairCost.toString() : '',
       repairVendor: req.repairVendor || '',
-      repairNote: req.repairNote || ''
+      repairNote: req.repairNote || '',
+      fundingSource: req.fundingSource || 'Nguồn thu dịch vụ y tế',
+      decisionNumber: req.decisionNumber || '',
+      servicePackage: req.servicePackage || '',
+      replacementParts: req.replacementParts || '',
+      acceptanceMembers: req.acceptanceMembers || ''
     });
     setShowProcessModal(true);
   };
@@ -839,6 +849,34 @@ export default function Maintenance() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Quyết định số / Phê duyệt</label>
+                  <input
+                    type="text"
+                    placeholder="QĐ số 12/QĐ-TTKSBT..."
+                    value={processData.decisionNumber}
+                    onChange={e => setProcessData({ ...processData, decisionNumber: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Nguồn kinh phí thực hiện</label>
+                  <select
+                    value={processData.fundingSource}
+                    onChange={e => setProcessData({ ...processData, fundingSource: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                  >
+                    <option value="Nguồn thu dịch vụ y tế">Nguồn thu dịch vụ y tế</option>
+                    <option value="Nguồn ngân sách nhà nước cấp">Nguồn ngân sách nhà nước cấp</option>
+                    <option value="Quỹ phát triển hoạt động sự nghiệp">Quỹ phát triển hoạt động sự nghiệp</option>
+                    <option value="Nguồn dự án / Viện trợ">Nguồn dự án / Viện trợ</option>
+                    <option value="Nguồn chi thường xuyên">Nguồn chi thường xuyên</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="block font-bold text-slate-700 uppercase mb-1">Chi phí sửa chữa (đ)</label>
                   <input
                     type="number"
@@ -856,6 +894,30 @@ export default function Maintenance() {
                     placeholder="Tự sửa / Tên nhà cung cấp..."
                     value={processData.repairVendor}
                     onChange={e => setProcessData({ ...processData, repairVendor: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Linh kiện thay thế</label>
+                  <input
+                    type="text"
+                    placeholder="Nguồn, RAM, Ổ cứng SSD, Sensor..."
+                    value={processData.replacementParts}
+                    onChange={e => setProcessData({ ...processData, replacementParts: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Thành phần nghiệm thu</label>
+                  <input
+                    type="text"
+                    placeholder="Người dùng, Kỹ thuật viên, Phòng TCKT..."
+                    value={processData.acceptanceMembers}
+                    onChange={e => setProcessData({ ...processData, acceptanceMembers: e.target.value })}
                     className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>

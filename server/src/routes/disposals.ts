@@ -124,7 +124,7 @@ router.post('/', requireAuth, async (req: any, res) => {
 router.put('/:id/inspect', requireAuth, async (req: any, res) => {
   try {
     const disposalId = parseInt(req.params.id);
-    const { technicalAssessment, technicalInspector, disposalMethod, disposalPrice, note } = req.body;
+    const { technicalAssessment, technicalInspector, disposalMethod, disposalPrice, note, decisionNumber, fundingSource } = req.body;
     const now = new Date().toISOString();
 
     await prisma.$executeRaw`
@@ -134,6 +134,8 @@ router.put('/:id/inspect', requireAuth, async (req: any, res) => {
           inspectionDate = ${now},
           disposalMethod = ${disposalMethod || 'Bán phế liệu'},
           disposalPrice = ${disposalPrice ? parseFloat(disposalPrice) : null},
+          decisionNumber = ${decisionNumber || 'QĐ số 45/QĐ-TTKSBT'},
+          fundingSource = ${fundingSource || 'Nộp NSNN / Quỹ PTHĐSN'},
           note = ${note || null},
           status = 'INSPECTED',
           updatedAt = ${now}

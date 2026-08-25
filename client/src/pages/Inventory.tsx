@@ -469,9 +469,17 @@ export default function Inventory() {
           <div className="text-base sm:text-lg font-bold text-blue-900 uppercase mt-1">
             {formTitle}
           </div>
-          <p className="text-xs sm:text-sm italic text-slate-600 mt-2 font-sans">
-            - Hôm nay, ngày {inventoryDate}, tại Trung tâm Kiểm soát bệnh tật TP Đà Nẵng, chúng tôi gồm:
-          </p>
+          <div className="text-xs sm:text-sm text-slate-700 mt-2 font-sans space-y-1">
+            <p className="italic">
+              - Căn cứ Quyết định số <strong>05/QĐ-TTKSBT</strong> ngày 05/01/2026 của Giám đốc CDC Đà Nẵng về việc thành lập Hội đồng kiểm kê tài sản năm 2026.
+            </p>
+            <p className="italic">
+              - Nguồn kinh phí hình thành: <strong>Ngân sách Nhà nước cấp & Quỹ phát triển hoạt động sự nghiệp</strong>
+            </p>
+            <p className="italic">
+              - Hôm nay, ngày {inventoryDate}, tại Trung tâm Kiểm soát bệnh tật TP Đà Nẵng, chúng tôi gồm:
+            </p>
+          </div>
         </div>
 
         {/* Thành phần Hội đồng & Tổ kiểm kê tự động điền */}

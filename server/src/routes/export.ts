@@ -29,6 +29,8 @@ router.get('/assets', requireAuth, async (req: any, res) => {
       { header: 'Cơ sở', key: 'location', width: 15 },
       { header: 'Trạng thái', key: 'status', width: 15 },
       { header: 'Nguyên giá (VNĐ)', key: 'originalPrice', width: 18 },
+      { header: 'Nguồn kinh phí', key: 'fundingSource', width: 25 },
+      { header: 'Quyết định số', key: 'decisionNumber', width: 20 },
     ];
 
     assets.forEach(asset => {
@@ -39,7 +41,9 @@ router.get('/assets', requireAuth, async (req: any, res) => {
         department: asset.department.name,
         location: asset.location || 'Cơ sở 1',
         status: asset.status,
-        originalPrice: asset.originalPrice || 0
+        originalPrice: asset.originalPrice || 0,
+        fundingSource: (asset as any).fundingSource || asset.source || 'Nguồn ngân sách nhà nước cấp',
+        decisionNumber: (asset as any).decisionNumber || 'QĐ số 05/QĐ-TTKSBT'
       });
     });
 
@@ -82,6 +86,8 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
     sheet.addRow([]);
     sheet.addRow([`BIÊN BẢN KIỂM KÊ TÀI SẢN CỐ ĐỊNH, CÔNG CỤ DỤNG CỤ NĂM 2026`]);
     sheet.addRow([dept ? `KHOA / PHÒNG: ${dept.name.toUpperCase()}` : 'TOÀN ĐƠN VỊ']);
+    sheet.addRow(['- Căn cứ Quyết định số 05/QĐ-TTKSBT ngày 05/01/2026 của Giám đốc CDC Đà Nẵng về việc thành lập Hội đồng kiểm kê năm 2026']);
+    sheet.addRow(['- Nguồn kinh phí hình thành: Ngân sách Nhà nước cấp & Quỹ phát triển hoạt động sự nghiệp']);
     sheet.addRow(['- Hôm nay, ngày 15 tháng 01 năm 2026, tại Trung tâm Kiểm soát bệnh tật TP Đà Nẵng chúng tôi gồm:']);
     sheet.addRow(['1. Ông. Nguyễn Đại Vĩnh', '', '', '', 'Giám đốc', '', '', '', '', '', 'Chủ tịch Hội đồng']);
     sheet.addRow(['2. Ông. Hồ Phú Quảng', '', '', '', 'Trưởng phòng TC - KT', '', '', '', '', '', 'Thành viên']);

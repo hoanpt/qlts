@@ -36,6 +36,8 @@ export default function AssetForm() {
     yearInUse: new Date().getFullYear().toString(),
     originalPrice: '',
     depreciationRate: '10',
+    fundingSource: 'Nguồn ngân sách nhà nước cấp',
+    decisionNumber: '',
     manufacturer: '',
     countryOfOrigin: '',
     specifications: '',
@@ -74,6 +76,8 @@ export default function AssetForm() {
               yearInUse: assetData.yearInUse?.toString() || '',
               originalPrice: assetData.originalPrice?.toString() || '',
               depreciationRate: assetData.depreciationRate?.toString() || '10',
+              fundingSource: assetData.fundingSource || 'Nguồn ngân sách nhà nước cấp',
+              decisionNumber: assetData.decisionNumber || '',
               manufacturer: assetData.manufacturer || '',
               countryOfOrigin: assetData.countryOfOrigin || '',
               specifications: assetData.specifications || '',
@@ -362,6 +366,33 @@ export default function AssetForm() {
               Thông số kỹ thuật & Ghi chú
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Nguồn kinh phí hình thành</label>
+                <select
+                  value={formData.fundingSource}
+                  onChange={e => setFormData({ ...formData, fundingSource: e.target.value })}
+                  className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="Nguồn ngân sách nhà nước cấp">Nguồn ngân sách nhà nước cấp</option>
+                  <option value="Nguồn thu dịch vụ y tế">Nguồn thu dịch vụ y tế</option>
+                  <option value="Quỹ phát triển hoạt động sự nghiệp">Quỹ phát triển hoạt động sự nghiệp</option>
+                  <option value="Nguồn dự án / Viện trợ phi chính phủ">Nguồn dự án / Viện trợ phi chính phủ</option>
+                  <option value="Nguồn viện trợ ODA">Nguồn viện trợ ODA</option>
+                  <option value="Nguồn xã hội hóa">Nguồn xã hội hóa</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Quyết định số / Căn cứ mua sắm</label>
+                <input 
+                  type="text" 
+                  placeholder="Ví dụ: QĐ số 15/QĐ-SYT, QĐ số 28/QĐ-TTKSBT..."
+                  value={formData.decisionNumber}
+                  onChange={e => setFormData({ ...formData, decisionNumber: e.target.value })}
+                  className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Hãng / Nước sản xuất</label>
                 <input 

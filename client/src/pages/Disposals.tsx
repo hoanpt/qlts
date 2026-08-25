@@ -51,6 +51,8 @@ export default function Disposals() {
   const [inspectionData, setInspectionData] = useState({
     technicalAssessment: 'Thiết bị đã qua nhiều năm sử dụng, linh kiện hao mòn, bo mạch chính chập cháy hỏng nặng, không có linh kiện thay thế, chi phí sửa chữa không hiệu quả kinh tế.',
     technicalInspector: 'Ông. Phan Thanh Hoàn (Tổ CNTT)',
+    decisionNumber: 'QĐ số 45/QĐ-TTKSBT',
+    fundingSource: 'Nộp ngân sách nhà nước / Quỹ PTHĐSN',
     disposalMethod: 'Bán phế liệu thu hồi',
     disposalPrice: '500000',
     note: 'Đề nghị Hội đồng thanh lý xem xét cho tiêu hủy / bán phế liệu theo quy định.'
@@ -582,12 +584,20 @@ export default function Disposals() {
           </div>
 
           <div className="text-center my-6">
-            <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wide">
-              BIÊN BẢN HỌP HỘI ĐỒNG ĐÁNH GIÁ & ĐỀ XUẤT THANH LÝ TÀI SẢN
+            <h2 className="text-lg sm:text-2xl font-bold uppercase tracking-wide">
+              BIÊN BẢN HỌP HỘI ĐỒNG THANH LÝ TÀI SẢN, CCDC NĂM 2026
             </h2>
-            <p className="text-xs sm:text-sm italic text-slate-600 mt-1 font-sans">
-              - Hôm nay, ngày 15 tháng 01 năm 2026, tại Trung tâm Kiểm soát bệnh tật TP Đà Nẵng, Hội đồng gồm có:
-            </p>
+            <div className="text-xs sm:text-sm text-slate-700 mt-2 font-sans space-y-1">
+              <p className="italic">
+                - Căn cứ Quyết định số <strong>45/QĐ-TTKSBT</strong> ngày 20/02/2026 của Giám đốc CDC Đà Nẵng về việc thành lập Hội đồng thanh lý tài sản, máy móc thiết bị hư hỏng.
+              </p>
+              <p className="italic">
+                - Nguồn kinh phí thanh lý: <strong>Tiền thu thanh lý nộp Quỹ phát triển hoạt động sự nghiệp / Ngân sách Nhà nước</strong>
+              </p>
+              <p className="italic">
+                - Hôm nay, ngày 15 tháng 01 năm 2026, tại Trung tâm Kiểm soát bệnh tật TP Đà Nẵng, Hội đồng gồm có:
+              </p>
+            </div>
           </div>
 
           {/* Thành phần Hội đồng thanh lý */}
@@ -810,6 +820,34 @@ export default function Disposals() {
                   onChange={e => setInspectionData({ ...inspectionData, technicalAssessment: e.target.value })}
                   className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Căn cứ quyết định / Kế hoạch (*)</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="QĐ số 45/QĐ-TTKSBT..."
+                    value={inspectionData.decisionNumber}
+                    onChange={e => setInspectionData({ ...inspectionData, decisionNumber: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Nguồn kinh phí / Nộp quỹ</label>
+                  <select
+                    value={inspectionData.fundingSource}
+                    onChange={e => setInspectionData({ ...inspectionData, fundingSource: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-purple-500 outline-none"
+                  >
+                    <option value="Nộp ngân sách nhà nước / Quỹ PTHĐSN">Nộp ngân sách nhà nước / Quỹ PTHĐSN</option>
+                    <option value="Nguồn thu dịch vụ y tế">Nguồn thu dịch vụ y tế</option>
+                    <option value="Quỹ phát triển hoạt động sự nghiệp">Quỹ phát triển hoạt động sự nghiệp</option>
+                    <option value="Nguồn ngân sách nhà nước">Nguồn ngân sách nhà nước</option>
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
