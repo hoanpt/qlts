@@ -6,20 +6,28 @@ import {
   Stethoscope, Monitor, Layers
 } from 'lucide-react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import { Department, Asset, CommitteeMember, STATUS_LABELS } from '../types';
 
 const FLOORS = ['Tất cả tầng', 'Tầng Hầm', 'Tầng 1', 'Tầng 2', 'Tầng 3', 'Tầng 4', 'Tầng 5', 'Tầng 6', 'Tầng 7'];
 
 export default function Inventory() {
+  const { user } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [committeeMembers, setCommitteeMembers] = useState<CommitteeMember[]>([]);
   const [showCommitteeModal, setShowCommitteeModal] = useState(false);
   
-  // Managing division selection: 'DUOC' | 'CNTT' | 'TCHC_HC' | 'TCHC_TOANHA' | 'BY_DEPT'
-  const [inventoryType, setInventoryType] = useState<string>('DUOC');
+  // Managing division selection by Role
+  const defaultInvType = 
+    user?.role === 'MANAGER_CNTT' ? 'CNTT' :
+    user?.role === 'MANAGER_DUOC' ? 'DUOC' :
+    user?.role === 'MANAGER_TCHC' ? 'TCHC_HC' :
+    user?.role === 'DEPARTMENT' ? 'BY_DEPT' : 'DUOC';
+
+  const [inventoryType, setInventoryType] = useState<string>(defaultInvType);
   
   // Specific department or floor selection
-  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+  const [selectedDeptId, setSelectedDeptId] = useState<string>(user?.role === 'DEPARTMENT' && user.departmentId ? user.departmentId.toString() : '');
   const [selectedFloor, setSelectedFloor] = useState<string>('Tất cả tầng');
   
   const [assets, setAssets] = useState<any[]>([]);
@@ -294,71 +302,88 @@ export default function Inventory() {
           </div>
         </div>
 
-        {/* 5 Distinct Inventory Mode Tabs */}
+        {/* 5 Distinct Inventory Mode Tabs - Scoped by User Role */}
         <div className="pt-2 border-t border-slate-100">
           <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
             Chọn loại biên bản kiểm kê chuyên trách:
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => { setInventoryType('DUOC'); setSelectedDeptId(''); }}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                inventoryType === 'DUOC'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'
-              }`}
-            >
-              <Stethoscope className="w-4 h-4" />
-              <span>1. BB Kiểm kê TBYT (Khoa Dược)</span>
-            </button>
+            {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_DUOC') && (
+              <button
+                onClick={() => { setInventoryType('DUOC'); setSelectedDeptId(''); }}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  inventoryType === 'DUOC'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'
+                }`}
+              >
+                <Stethoscope className="w-4 h-4" />
+                <span>1. BB Kiểm kê TBYT (Khoa Dược)</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => { setInventoryType('CNTT'); setSelectedDeptId(''); }}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                inventoryType === 'CNTT'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700'
-              }`}
-            >
-              <Monitor className="w-4 h-4" />
-              <span>2. BB Kiểm kê Thiết bị CNTT</span>
-            </button>
+            {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_CNTT') && (
+              <button
+                onClick={() => { setInventoryType('CNTT'); setSelectedDeptId(''); }}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  inventoryType === 'CNTT'
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700'
+                }`}
+              >
+                <Monitor className="w-4 h-4" />
+                <span>2. BB Kiểm kê Thiết bị CNTT (Tổ CNTT)</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => { setInventoryType('TCHC_HC'); setSelectedDeptId(''); }}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                inventoryType === 'TCHC_HC'
-                  ? 'bg-amber-600 text-white shadow'
-                  : 'bg-slate-100 text-slate-700 hover:bg-amber-50 hover:text-amber-700'
-              }`}
-            >
-              <Building2 className="w-4 h-4" />
-              <span>3. BB Kiểm kê Hành chính (TCHC)</span>
-            </button>
+            {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_TCHC') && (
+              <button
+                onClick={() => { setInventoryType('TCHC_HC'); setSelectedDeptId(''); }}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  inventoryType === 'TCHC_HC'
+                    ? 'bg-amber-600 text-white shadow'
+                    : 'bg-slate-100 text-slate-700 hover:bg-amber-50 hover:text-amber-700'
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                <span>3. BB Kiểm kê Hành chính (TCHC)</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => { setInventoryType('TCHC_TOANHA'); setSelectedDeptId(''); }}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                inventoryType === 'TCHC_TOANHA'
-                  ? 'bg-orange-600 text-white shadow'
-                  : 'bg-slate-100 text-slate-700 hover:bg-orange-50 hover:text-orange-700'
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-              <span>4. BB Kiểm kê Hạ tầng Tòa nhà (Theo Tầng)</span>
-            </button>
+            {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_TCHC') && (
+              <button
+                onClick={() => { setInventoryType('TCHC_TOANHA'); setSelectedDeptId(''); }}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  inventoryType === 'TCHC_TOANHA'
+                    ? 'bg-orange-600 text-white shadow'
+                    : 'bg-slate-100 text-slate-700 hover:bg-orange-50 hover:text-orange-700'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>4. BB Kiểm kê Hạ tầng Tòa nhà (Theo Tầng)</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => { setInventoryType('BY_DEPT'); if (!selectedDeptId && departments.length) setSelectedDeptId(departments[0].id.toString()); }}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                inventoryType === 'BY_DEPT'
-                  ? 'bg-purple-600 text-white shadow'
-                  : 'bg-slate-100 text-slate-700 hover:bg-purple-50 hover:text-purple-700'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>5. BB Kiểm kê Theo Khoa / Phòng</span>
-            </button>
+            {(!user || user.role === 'ADMIN' || user.role === 'DEPARTMENT') && (
+              <button
+                onClick={() => { 
+                  setInventoryType('BY_DEPT'); 
+                  if (user?.role === 'DEPARTMENT' && user.departmentId) {
+                    setSelectedDeptId(user.departmentId.toString());
+                  } else if (!selectedDeptId && departments.length) {
+                    setSelectedDeptId(departments[0].id.toString());
+                  }
+                }}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  inventoryType === 'BY_DEPT'
+                    ? 'bg-purple-600 text-white shadow'
+                    : 'bg-slate-100 text-slate-700 hover:bg-purple-50 hover:text-purple-700'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>{user?.role === 'DEPARTMENT' ? `BB Kiểm kê Tài sản ${user.fullName}` : '5. BB Kiểm kê Theo Khoa / Phòng'}</span>
+              </button>
+            )}
           </div>
         </div>
 

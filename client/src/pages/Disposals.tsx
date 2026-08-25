@@ -6,9 +6,11 @@ import {
   CheckCircle, ArrowRight
 } from 'lucide-react';
 import { apiGet, apiPost, apiPut } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import { Asset, CommitteeMember, Department } from '../types';
 
 export default function Disposals() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'CAMPAIGNS' | 'PROPOSALS' | 'INSPECTIONS' | 'BOARD_MEETING'>('PROPOSALS');
   
   const [campaigns, setCampaigns] = useState<any[]>([]);
@@ -19,8 +21,15 @@ export default function Disposals() {
   const [loading, setLoading] = useState(true);
 
   // Filter state
-  const [selectedManagingUnit, setSelectedManagingUnit] = useState<string>('ALL');
-  const [selectedDeptId, setSelectedDeptId] = useState<string>('ALL');
+  const defaultUnit = 
+    user?.role === 'MANAGER_CNTT' ? 'CNTT' :
+    user?.role === 'MANAGER_DUOC' ? 'DUOC' :
+    user?.role === 'MANAGER_TCHC' ? 'TCHC' : 'ALL';
+
+  const defaultDept = user?.role === 'DEPARTMENT' && user.departmentId ? user.departmentId.toString() : 'ALL';
+
+  const [selectedManagingUnit, setSelectedManagingUnit] = useState<string>(defaultUnit);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>(defaultDept);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // Modals state

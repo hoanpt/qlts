@@ -35,7 +35,7 @@ router.post('/campaigns', requireAuth, requireAdmin, async (req: any, res) => {
 });
 
 // List all disposal proposals with filtering
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req: any, res) => {
   try {
     const { status, managingUnit, departmentId } = req.query;
     const disposals = await prisma.disposal.findMany({
@@ -50,15 +50,28 @@ router.get('/', requireAuth, async (req, res) => {
       orderBy: { proposedDate: 'desc' }
     });
 
+    let enforcedUnit = managingUnit;
+    let enforcedDept = departmentId;
+
+    if (req.user?.role === 'MANAGER_CNTT') {
+      enforcedUnit = 'CNTT';
+    } else if (req.user?.role === 'MANAGER_DUOC') {
+      enforcedUnit = 'DUOC';
+    } else if (req.user?.role === 'MANAGER_TCHC') {
+      enforcedUnit = 'TCHC';
+    } else if (req.user?.role === 'DEPARTMENT' && req.user.departmentId) {
+      enforcedDept = req.user.departmentId.toString();
+    }
+
     let filtered = disposals;
     if (status && status !== 'ALL') {
       filtered = filtered.filter(d => d.status === status);
     }
-    if (managingUnit && managingUnit !== 'ALL') {
-      filtered = filtered.filter(d => (d.asset as any)?.managingUnit === managingUnit);
+    if (enforcedUnit && enforcedUnit !== 'ALL') {
+      filtered = filtered.filter(d => (d.asset as any)?.managingUnit === enforcedUnit);
     }
-    if (departmentId && departmentId !== 'ALL') {
-      filtered = filtered.filter(d => d.asset?.departmentId === parseInt(departmentId as string));
+    if (enforcedDept && enforcedDept !== 'ALL') {
+      filtered = filtered.filter(d => d.asset?.departmentId === parseInt(enforcedDept as string));
     }
 
     res.json(filtered);

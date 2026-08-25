@@ -13,11 +13,19 @@ router.get('/', requireAuth, async (req: any, res) => {
   if (fromDepartmentId) where.fromDepartmentId = parseInt(fromDepartmentId);
   if (toDepartmentId) where.toDepartmentId = parseInt(toDepartmentId);
 
-  if (req.user.role === 'DEPARTMENT') {
-    where.OR = [
-      { fromDepartmentId: req.user.departmentId },
-      { toDepartmentId: req.user.departmentId }
-    ];
+  if (req.user) {
+    if (req.user.role === 'MANAGER_CNTT') {
+      where.asset = { managingUnit: 'CNTT' };
+    } else if (req.user.role === 'MANAGER_DUOC') {
+      where.asset = { managingUnit: 'DUOC' };
+    } else if (req.user.role === 'MANAGER_TCHC') {
+      where.asset = { managingUnit: 'TCHC' };
+    } else if (req.user.role === 'DEPARTMENT' && req.user.departmentId) {
+      where.OR = [
+        { fromDepartmentId: req.user.departmentId },
+        { toDepartmentId: req.user.departmentId }
+      ];
+    }
   }
 
   try {

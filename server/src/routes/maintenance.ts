@@ -18,6 +18,14 @@ router.get('/stats/periodic', requireAuth, async (req: any, res) => {
       orderBy: { requestDate: 'desc' }
     });
 
+    // Enforce role-based scoping for periodic stats
+    let userManagingUnit = managingUnit;
+    let userDepartmentId = departmentId;
+    if (req.user?.role === 'MANAGER_CNTT') userManagingUnit = 'CNTT';
+    else if (req.user?.role === 'MANAGER_DUOC') userManagingUnit = 'DUOC';
+    else if (req.user?.role === 'MANAGER_TCHC') userManagingUnit = 'TCHC';
+    else if (req.user?.role === 'DEPARTMENT' && req.user.departmentId) userDepartmentId = req.user.departmentId;
+
     // Filter by year, month, quarter
     let filtered = allRequests.filter(r => {
       const d = new Date(r.requestDate);
@@ -27,8 +35,9 @@ router.get('/stats/periodic', requireAuth, async (req: any, res) => {
         const q = Math.floor(d.getMonth() / 3) + 1;
         if (q.toString() !== quarter.toString()) return false;
       }
-      if (departmentId && departmentId !== 'ALL' && r.departmentId.toString() !== departmentId.toString()) return false;
-      if (managingUnit && managingUnit !== 'ALL' && (r as any).managingUnit !== managingUnit) return false;
+      if (userDepartmentId && userDepartmentId !== 'ALL' && r.departmentId.toString() !== userDepartmentId.toString()) return false;
+      const unit = (r as any).managingUnit || (r.asset as any)?.managingUnit;
+      if (userManagingUnit && userManagingUnit !== 'ALL' && unit !== userManagingUnit) return false;
       return true;
     });
 
@@ -92,7 +101,15 @@ router.get('/', requireAuth, async (req: any, res) => {
   if (priority && priority !== 'ALL') where.priority = priority;
   if (assetId) where.assetId = parseInt(assetId);
 
-  if (req.user.role === 'DEPARTMENT' && !departmentId) {
+  // Enforce role-based scoping
+  let enforcedUnit = managingUnit;
+  if (req.user?.role === 'MANAGER_CNTT') {
+    enforcedUnit = 'CNTT';
+  } else if (req.user?.role === 'MANAGER_DUOC') {
+    enforcedUnit = 'DUOC';
+  } else if (req.user?.role === 'MANAGER_TCHC') {
+    enforcedUnit = 'TCHC';
+  } else if (req.user?.role === 'DEPARTMENT' && req.user.departmentId) {
     where.departmentId = req.user.departmentId;
   }
 
@@ -112,8 +129,8 @@ router.get('/', requireAuth, async (req: any, res) => {
     });
 
     let filtered = requests;
-    if (managingUnit && managingUnit !== 'ALL') {
-      filtered = filtered.filter(r => (r as any).managingUnit === managingUnit || (r.asset as any)?.managingUnit === managingUnit);
+    if (enforcedUnit && enforcedUnit !== 'ALL') {
+      filtered = filtered.filter(r => (r as any).managingUnit === enforcedUnit || (r.asset as any)?.managingUnit === enforcedUnit);
     }
 
     res.json(filtered);
