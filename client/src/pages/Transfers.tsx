@@ -102,7 +102,15 @@ export default function Transfers() {
     }
   };
 
-  const displayedTransfers = transfers.filter(t => activeTab === 'PENDING' ? t.status === 'PENDING' : t.status !== 'PENDING');
+  const displayedTransfers = transfers.filter(t => {
+    if (user?.role === 'DEPARTMENT' && user.departmentId) {
+      if (t.fromDepartmentId !== user.departmentId && t.toDepartmentId !== user.departmentId) {
+        return false;
+      }
+    }
+    if (activeTab === 'PENDING') return t.status === 'PENDING';
+    return t.status !== 'PENDING';
+  });
 
   return (
     <div className="space-y-6 pb-10">

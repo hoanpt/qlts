@@ -2,7 +2,7 @@ export interface User {
   id: number;
   username: string;
   fullName: string;
-  role: 'ADMIN' | 'DEPARTMENT';
+  role: 'ADMIN' | 'MANAGER_DUOC' | 'MANAGER_CNTT' | 'MANAGER_TCHC' | 'DEPARTMENT' | string;
   departmentId?: number;
   department?: Department;
 }
