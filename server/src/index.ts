@@ -188,6 +188,48 @@ async function autoMigrateAndSeed() {
         });
       }
     }
+    // 3. Automated cleanup & unification of CNTT PC sets (gộp màn hình & cpu)
+    const plusItems = await prisma.asset.findMany({
+      where: {
+        OR: [
+          { name: { startsWith: '+' } },
+          { name: { startsWith: '   +' } },
+          { name: { startsWith: '- ' } }
+        ]
+      }
+    });
+
+    if (plusItems.length > 0) {
+      console.log(`[Database] Cleaning ${plusItems.length} sub-items...`);
+      for (const item of plusItems) {
+        const cleanName = item.name.replace(/^[\+\s\-]+/, '').trim();
+        await prisma.asset.update({
+          where: { id: item.id },
+          data: { name: cleanName }
+        });
+      }
+    }
+
+    // Also check if any asset has purely numeric code like "1", "2" and replace with standardized code
+    const numericCodes = await prisma.asset.findMany({
+      where: {
+        assetCode: { in: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'] },
+        managingUnit: 'CNTT'
+      },
+      include: { department: true }
+    });
+
+    for (const numItem of numericCodes) {
+      const deptCode = numItem.department?.code || 'CNTT';
+      const newCode = `PC/${deptCode}-${numItem.assetCode.padStart(3, '0')}`;
+      try {
+        await prisma.asset.update({
+          where: { id: numItem.id },
+          data: { assetCode: newCode }
+        });
+      } catch {}
+    }
+
     console.log('[Database] Auto-migration and user synchronization verified.');
   } catch (err) {
     console.warn('[Database] Auto-migration notice:', err);

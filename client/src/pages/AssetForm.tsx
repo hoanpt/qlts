@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Save, Building2, Monitor, Stethoscope, Layers } from 'lucide-react';
+import { ArrowLeft, Save, Building2, Monitor, Stethoscope, Layers, ShieldCheck } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiGet, apiPost, apiPut } from '../lib/api';
 import { AssetCategory, Department } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 const FALLBACK_CATEGORIES: AssetCategory[] = [
   { id: 1, code: 'DUOC', name: 'Trang thiết bị Y tế (Khoa Dược quản lý)', description: 'Máy xét nghiệm, siêu âm, chẩn đoán, vắc xin...' },
@@ -14,6 +15,7 @@ const FALLBACK_CATEGORIES: AssetCategory[] = [
 const FLOORS = ['Tầng Hầm', 'Tầng 1', 'Tầng 2', 'Tầng 3', 'Tầng 4', 'Tầng 5', 'Tầng 6', 'Tầng 7'];
 
 export default function AssetForm() {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
@@ -22,12 +24,20 @@ export default function AssetForm() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Determine initial managingUnit and default category code by role
+  const isCntt = user?.role === 'MANAGER_CNTT';
+  const isDuoc = user?.role === 'MANAGER_DUOC';
+  const isTchc = user?.role === 'MANAGER_TCHC';
+  const isAdmin = user?.role === 'ADMIN';
+
+  const defaultRoleUnit = isCntt ? 'CNTT' : isTchc ? 'TCHC' : 'DUOC';
+
   const [formData, setFormData] = useState({
     assetCode: '',
     name: '',
-    categoryId: '1',
+    categoryId: isCntt ? '2' : isTchc ? '3' : '1',
     departmentId: '1',
-    managingUnit: 'DUOC',
+    managingUnit: defaultRoleUnit,
     floor: 'Tầng 1',
     buildingAsset: 0,
     location: 'Cơ sở 1',
@@ -45,6 +55,15 @@ export default function AssetForm() {
     note: ''
   });
 
+  // Filter categories strictly according to user role
+  const allowedCategories = categories.filter(c => {
+    if (!user || user.role === 'ADMIN') return true;
+    if (isCntt) return c.code === 'CNTT';
+    if (isDuoc) return c.code === 'DUOC';
+    if (isTchc) return c.code === 'TCHC' || c.code === 'TBVP_TOANHA';
+    return true;
+  });
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -52,8 +71,10 @@ export default function AssetForm() {
           apiGet('/categories'),
           apiGet('/departments')
         ]);
+        let loadedCats = FALLBACK_CATEGORIES;
         if (cRes.status === 'fulfilled' && Array.isArray(cRes.value) && cRes.value.length > 0) {
-          setCategories(cRes.value);
+          loadedCats = cRes.value;
+          setCategories(loadedCats);
         }
         if (dRes.status === 'fulfilled' && Array.isArray(dRes.value)) {
           setDepartments(dRes.value);
@@ -67,7 +88,7 @@ export default function AssetForm() {
               name: assetData.name || '',
               categoryId: assetData.categoryId?.toString() || '1',
               departmentId: assetData.departmentId?.toString() || '1',
-              managingUnit: assetData.managingUnit || 'DUOC',
+              managingUnit: assetData.managingUnit || defaultRoleUnit,
               floor: assetData.floor || 'Tầng 1',
               buildingAsset: assetData.buildingAsset || 0,
               location: assetData.location || 'Cơ sở 1',
@@ -84,6 +105,17 @@ export default function AssetForm() {
               status: assetData.status || 'DANG_SU_DUNG',
               note: assetData.note || ''
             });
+          }
+        } else {
+          // Set initial category correctly for current role
+          const targetCode = isCntt ? 'CNTT' : isTchc ? 'TCHC' : 'DUOC';
+          const matchCat = loadedCats.find(c => c.code === targetCode) || loadedCats[0];
+          if (matchCat) {
+            setFormData(prev => ({
+              ...prev,
+              categoryId: matchCat.id.toString(),
+              managingUnit: targetCode
+            }));
           }
         }
       } catch (e) {
@@ -113,6 +145,11 @@ export default function AssetForm() {
       mUnit = 'DUOC';
       isBuilding = 0;
     }
+
+    // Role override
+    if (isCntt) mUnit = 'CNTT';
+    if (isDuoc) mUnit = 'DUOC';
+    if (isTchc) mUnit = 'TCHC';
 
     setFormData(prev => ({
       ...prev,
@@ -184,13 +221,26 @@ export default function AssetForm() {
               Định danh & Phân loại danh mục
             </h3>
             
+            {/* Role indicator banner */}
+            {!isAdmin && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-2 text-xs font-semibold text-blue-800">
+                <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>
+                  {isCntt ? '💻 Quyền hạn Tổ CNTT: Chỉ thêm & quản lý tài sản thuộc danh mục Thiết bị CNTT.' :
+                   isDuoc ? '🩺 Quyền hạn Khoa Dược: Chỉ thêm & quản lý tài sản thuộc danh mục Trang thiết bị Y tế.' :
+                   isTchc ? '🏢 Quyền hạn Phòng TCHC: Chỉ thêm & quản lý tài sản thuộc danh mục Hành chính & Tòa nhà.' :
+                   'Phân quyền theo đơn vị của bạn.'}
+                </span>
+              </div>
+            )}
+
             {/* Category Cards Selector */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
                 Danh mục quản lý tài sản (*)
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {categories.map(c => (
+                {allowedCategories.map(c => (
                   <div
                     key={c.id}
                     onClick={() => handleCategoryChange(c.id.toString())}

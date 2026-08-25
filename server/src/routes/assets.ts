@@ -101,30 +101,70 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, async (req: any, res) => {
   try {
+    const data = { ...req.body };
+    if (req.user) {
+      if (req.user.role === 'MANAGER_CNTT') {
+        data.managingUnit = 'CNTT';
+      } else if (req.user.role === 'MANAGER_DUOC') {
+        data.managingUnit = 'DUOC';
+      } else if (req.user.role === 'MANAGER_TCHC') {
+        data.managingUnit = 'TCHC';
+      }
+    }
     const qrCode = uuidv4();
     const asset = await prisma.asset.create({
       data: {
-        ...req.body,
+        ...data,
         qrCode
       }
     });
     res.status(201).json(asset);
   } catch (error) {
-    res.status(400).json({ error: 'Error creating asset' });
+    console.error('Error creating asset:', error);
+    res.status(400).json({ error: 'Lỗi khi tạo mới tài sản' });
   }
 });
 
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, async (req: any, res) => {
   try {
+    const id = parseInt(req.params.id);
+    const existing = await prisma.asset.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Không tìm thấy tài sản' });
+
+    // Enforce role isolation
+    if (req.user && req.user.role !== 'ADMIN') {
+      if (req.user.role === 'MANAGER_CNTT' && existing.managingUnit !== 'CNTT') {
+        return res.status(403).json({ error: 'Bạn chỉ có quyền chỉnh sửa tài sản thuộc Khối CNTT' });
+      }
+      if (req.user.role === 'MANAGER_DUOC' && existing.managingUnit !== 'DUOC') {
+        return res.status(403).json({ error: 'Bạn chỉ có quyền chỉnh sửa tài sản thuộc Khối Khoa Dược (TBYT)' });
+      }
+      if (req.user.role === 'MANAGER_TCHC' && existing.managingUnit !== 'TCHC') {
+        return res.status(403).json({ error: 'Bạn chỉ có quyền chỉnh sửa tài sản thuộc Khối Phòng TCHC' });
+      }
+    }
+
+    const data = { ...req.body };
+    if (req.user) {
+      if (req.user.role === 'MANAGER_CNTT') {
+        data.managingUnit = 'CNTT';
+      } else if (req.user.role === 'MANAGER_DUOC') {
+        data.managingUnit = 'DUOC';
+      } else if (req.user.role === 'MANAGER_TCHC') {
+        data.managingUnit = 'TCHC';
+      }
+    }
+
     const asset = await prisma.asset.update({
-      where: { id: parseInt(req.params.id) },
-      data: req.body
+      where: { id },
+      data
     });
     res.json(asset);
   } catch (error) {
-    res.status(400).json({ error: 'Error updating asset' });
+    console.error('Error updating asset:', error);
+    res.status(400).json({ error: 'Lỗi khi cập nhật tài sản' });
   }
 });
 
