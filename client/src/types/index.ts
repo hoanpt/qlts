@@ -173,6 +173,16 @@ export interface CalibrationRecord {
   result: 'PASS' | 'FAIL' | 'CONDITIONAL';
   certificateNumber?: string;
   note?: string;
+  serviceType?: 'HIEU_CHUAN' | 'KIEM_DINH' | 'THU_NGHIEM' | 'KIEM_XA' | string;
+  servicePackage?: string;
+  cost?: number;
+  decisionNumber?: string;
+  acceptanceMembers?: string;
+  fundingSource?: string;
+  deviceStatusAfter?: string;
+  departmentLocation?: string;
+  proposalDate?: string;
+  approvalDate?: string;
 }
 
 export interface DashboardStats {

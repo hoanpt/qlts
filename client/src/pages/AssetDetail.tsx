@@ -363,19 +363,41 @@ export default function AssetDetail() {
               ) : (
                 <div className="space-y-3">
                   {asset.calibrations.map((c: any) => (
-                    <div key={c.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-sm text-slate-900">Chứng nhận số: {c.certificateNumber || 'HC-CDC-2026'}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          Đơn vị thực hiện: {c.vendor || 'Trung tâm Đo lường / Kiểm định'}
+                    <div key={c.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              c.serviceType === 'THU_NGHIEM' ? 'bg-purple-100 text-purple-800' :
+                              c.serviceType === 'KIEM_DINH' ? 'bg-blue-100 text-blue-800' :
+                              c.serviceType === 'KIEM_XA' ? 'bg-red-100 text-red-800' :
+                              'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {c.serviceType === 'THU_NGHIEM' ? 'Thử nghiệm ATSH' :
+                               c.serviceType === 'KIEM_DINH' ? 'Kiểm định TBYT' :
+                               c.serviceType === 'KIEM_XA' ? 'Kiểm xạ X-quang' : 'Hiệu chuẩn'}
+                            </span>
+                            <span className="font-bold text-sm text-slate-900">{c.certificateNumber || 'Chứng nhận kiểm định'}</span>
+                          </div>
+                          <div className="text-xs text-slate-600 mt-1">
+                            Đơn vị thực hiện: <strong className="text-slate-800">{c.vendor || 'TT SMETES'}</strong>
+                            {c.cost ? ` • Kinh phí: ${Number(c.cost).toLocaleString('vi-VN')} đ` : ''}
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-500">
-                          Ngày thực hiện: {new Date(c.calibrationDate).toLocaleDateString('vi-VN')} • Hạn hiệu chuẩn tiếp: <strong className="text-blue-600">{c.nextCalibrationDate ? new Date(c.nextCalibrationDate).toLocaleDateString('vi-VN') : '12 tháng'}</strong>
-                        </div>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${c.result === 'PASS' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                          {c.deviceStatusAfter || (c.result === 'PASS' ? 'Đạt tiêu chuẩn ISO 17025' : 'Không đạt')}
+                        </span>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${c.result === 'PASS' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                        {c.result === 'PASS' ? 'Đạt tiêu chuẩn' : 'Không đạt'}
-                      </span>
+
+                      <div className="text-xs text-slate-500 bg-white p-2.5 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <span>Ngày thực hiện: <strong>{new Date(c.calibrationDate).toLocaleDateString('vi-VN')}</strong></span>
+                          <span> • Hạn hiệu chuẩn tiếp: <strong className="text-blue-600">{c.nextCalibrationDate ? new Date(c.nextCalibrationDate).toLocaleDateString('vi-VN') : '12 tháng'}</strong></span>
+                        </div>
+                        {c.acceptanceMembers && (
+                          <div className="text-[11px] text-slate-600">Nghiệm thu: {c.acceptanceMembers}</div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

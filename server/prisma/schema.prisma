@@ -127,6 +127,14 @@ model MaintenanceRequest {
   repairVendor     String?
   repairNote       String?
   technicianName   String?   // Tên cán bộ kỹ thuật tiếp nhận / xử lý
+  maintenanceType  String?   @default("SUA_CHUA") // SUA_CHUA, BAO_TRI
+  servicePackage   String?   // Gói bảo trì / dịch vụ
+  replacementParts String?   // Linh kiện thay thế
+  acceptanceMembers String?  // Người nghiệm thu
+  fundingSource    String?   // Nguồn kinh phí (Thu sự nghiệp, Quỹ PTHĐSN...)
+  deviceStatusAfter String?  @default("Tốt")
+  proposalDate     DateTime? // Ngày trình phê duyệt
+  approvalDate     DateTime?
   requestDate      DateTime  @default(now())
   completedDate    DateTime?
   createdAt        DateTime  @default(now())
@@ -199,5 +207,15 @@ model CalibrationRecord {
   result              String    @default("PASS") // PASS, FAIL, CONDITIONAL
   certificateNumber   String?
   note                String?
+  serviceType         String?   @default("HIEU_CHUAN") // HIEU_CHUAN, KIEM_DINH, THU_NGHIEM, KIEM_XA
+  servicePackage      String?   // Gói dịch vụ ISO 17025...
+  cost                Float?    @default(0)
+  decisionNumber      String?   // Quyết định số 34/QĐ-TTKSBT...
+  acceptanceMembers   String?   // Người nghiệm thu (Ds. Tính, Ds. Lộc, Cn. Hải, Cn. Sơn...)
+  fundingSource       String?   // Thu sự nghiệp, Quỹ PTHĐSN...
+  deviceStatusAfter   String?   @default("Tốt")
+  departmentLocation  String?   // Bộ phận sử dụng (HIV-CS1, HL-CS2...)
+  proposalDate        DateTime?
+  approvalDate        DateTime?
   createdAt           DateTime  @default(now())
 }
