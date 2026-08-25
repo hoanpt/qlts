@@ -1,0 +1,11 @@
+{
+  "name": "qlts-cdc-danang",
+  "version": "1.0.0",
+  "description": "Hệ Thống Quản Lý Tài Sản & Trang Thiết Bị - CDC Đà Nẵng",
+  "private": true,
+  "scripts": {
+    "postinstall": "cd client && npm install && cd ../server && npm install && npx prisma generate",
+    "build": "cd client && npm run build && cd ../server && npm run build",
+    "start": "cd server && node dist/src/index.js"
+  }
+}

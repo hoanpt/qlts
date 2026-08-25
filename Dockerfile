@@ -41,8 +41,9 @@ WORKDIR /app/server
 RUN npm ci --only=production
 RUN npx prisma generate
 
-# Copy built server dist
+# Copy built server dist & SQLite database
 COPY --from=server-builder /app/server/dist ./dist
+COPY server/prisma/dev.db* ./prisma/
 
 # Copy built client dist for SPA static serving
 COPY --from=client-builder /app/client/dist /app/client/dist

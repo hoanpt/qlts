@@ -44,9 +44,14 @@ app.get('/api/health', (req, res) => {
 });
 
 // Serve frontend static assets in production if client/dist exists
-const clientDistPath = path.join(__dirname, '../../client/dist');
-const altClientDistPath = path.join(__dirname, '../client/dist');
-const staticPath = fs.existsSync(clientDistPath) ? clientDistPath : (fs.existsSync(altClientDistPath) ? altClientDistPath : null);
+const possibleDistPaths = [
+  path.join(__dirname, '../../client/dist'),
+  path.join(__dirname, '../client/dist'),
+  path.join(process.cwd(), '../client/dist'),
+  path.join(process.cwd(), 'client/dist'),
+  '/app/client/dist'
+];
+const staticPath = possibleDistPaths.find(p => fs.existsSync(p)) || null;
 
 if (staticPath) {
   console.log(`Serving static client files from: ${staticPath}`);
