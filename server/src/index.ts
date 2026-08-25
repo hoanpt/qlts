@@ -15,6 +15,7 @@ import calibrationRoutes from './routes/calibrations';
 import dashboardRoutes from './routes/dashboard';
 import exportRoutes from './routes/export';
 import committeeRoutes from './routes/committee';
+import userRoutes from './routes/users';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -78,6 +79,7 @@ app.use('/api/calibrations', calibrationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/committee', committeeRoutes);
+app.use('/api/users', userRoutes);
 
 // Health check endpoint for Coolify / Docker
 app.get('/api/health', (req, res) => {

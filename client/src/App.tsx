@@ -18,6 +18,7 @@ import Depreciation from './pages/Depreciation';
 import Calibration from './pages/Calibration';
 import QRScanner from './pages/QRScanner';
 import Departments from './pages/Departments';
+import Users from './pages/Users';
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,9 @@ function AppRoutes() {
         <Route path="qr-scanner" element={<QRScanner />} />
         <Route path="departments" element={
           <ProtectedRoute adminOnly><Departments /></ProtectedRoute>
+        } />
+        <Route path="users" element={
+          <ProtectedRoute adminOnly><Users /></ProtectedRoute>
         } />
       </Route>
     </Routes>

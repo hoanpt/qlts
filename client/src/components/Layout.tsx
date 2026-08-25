@@ -3,18 +3,61 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Monitor, ArrowLeftRight, Wrench,
   ClipboardList, Trash2, TrendingDown, Award, QrCode,
-  Building2, Menu, X, LogOut, User as UserIcon
+  Building2, Menu, X, LogOut, User as UserIcon, Users as UsersIcon,
+  KeyRound, Eye, EyeOff, CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { apiPost } from '../lib/api';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Change Password Modal State
+  const [showChangePassModal, setShowChangePassModal] = useState(false);
+  const [changePassForm, setChangePassForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPass, setShowPass] = useState(false);
+  const [passLoading, setPassLoading] = useState(false);
+  const [passError, setPassError] = useState('');
+
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPassError('');
+
+    if (changePassForm.newPassword.length < 6) {
+      setPassError('Mật khẩu mới phải có tối thiểu 6 ký tự!');
+      return;
+    }
+
+    if (changePassForm.newPassword !== changePassForm.confirmPassword) {
+      setPassError('Xác nhận mật khẩu mới không trùng khớp!');
+      return;
+    }
+
+    setPassLoading(true);
+    try {
+      await apiPost('/auth/change-password', {
+        currentPassword: changePassForm.currentPassword,
+        newPassword: changePassForm.newPassword
+      });
+      alert('Đổi mật khẩu thành công! Hãy ghi nhớ mật khẩu mới của bạn.');
+      setShowChangePassModal(false);
+      setChangePassForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err: any) {
+      setPassError(err.message || 'Lỗi khi đổi mật khẩu');
+    } finally {
+      setPassLoading(false);
+    }
   };
 
   const getRoleLabel = () => {
@@ -86,9 +129,10 @@ export default function Layout() {
     navItems.push({ to: '/depreciation', icon: TrendingDown, label: 'Tính khấu hao' });
   }
 
-  // Admin only
+  // Admin only: Quản lý khoa phòng & Quản lý người dùng
   if (isAdmin) {
     navItems.push({ to: '/departments', icon: Building2, label: 'Quản lý khoa/phòng' });
+    navItems.push({ to: '/users', icon: UsersIcon, label: 'Quản trị người dùng' });
   }
 
   return (
@@ -102,6 +146,13 @@ export default function Layout() {
           <span className="font-bold text-base text-blue-600">QLTS CDC ĐÀ NẴNG</span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowChangePassModal(true)}
+            className="p-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition"
+            title="Đổi mật khẩu"
+          >
+            <KeyRound className="w-4 h-4" />
+          </button>
           <span className="text-xs font-semibold px-2 py-1 bg-blue-50 text-blue-700 rounded-lg">
             {user?.fullName?.split(' - ')[0] || user?.fullName}
           </span>
@@ -135,8 +186,8 @@ export default function Layout() {
             </button>
           </div>
 
-          {/* User Profile Card */}
-          <div className="p-3.5 border-b border-slate-100 bg-slate-50/60">
+          {/* User Profile Card with Change Password Button */}
+          <div className="p-3.5 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="p-2 bg-white rounded-xl text-blue-600 border border-slate-200 shadow-2xs shrink-0">
                 <UserIcon className="w-4 h-4" />
@@ -146,10 +197,18 @@ export default function Layout() {
                 <p className="text-[10px] font-semibold text-slate-500 truncate mt-0.5">{getRoleLabel()}</p>
               </div>
             </div>
+
+            <button
+              onClick={() => setShowChangePassModal(true)}
+              title="Đổi mật khẩu"
+              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-white rounded-lg border border-transparent hover:border-slate-200 transition cursor-pointer shrink-0"
+            >
+              <KeyRound className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Navigation Links */}
-          <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-230px)]">
+          <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-270px)]">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -170,13 +229,21 @@ export default function Layout() {
           </nav>
         </div>
 
-        {/* Footer Logout Button */}
-        <div className="p-3 border-t border-slate-100">
+        {/* Footer Actions */}
+        <div className="p-3 border-t border-slate-100 space-y-1.5">
+          <button
+            onClick={() => setShowChangePassModal(true)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+            <span>Đổi mật khẩu cá nhân</span>
+          </button>
+
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-red-600 bg-red-50/70 hover:bg-red-100 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-red-600 bg-red-50/70 hover:bg-red-100 transition-colors cursor-pointer"
           >
-            <LogOut className="w-4 h-4 shrink-0" />
+            <LogOut className="w-3.5 h-3.5" />
             <span>Đăng xuất ({user?.username})</span>
           </button>
         </div>
@@ -188,6 +255,94 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+
+      {/* ========================================================================= */}
+      {/* MODAL: ĐỔI MẬT KHẨU CÁ NHÂN (DÀNH CHO TẤT CẢ USER)                        */}
+      {/* ========================================================================= */}
+      {showChangePassModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Đổi Mật Khẩu Tài Khoản</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Tài khoản: <strong>{user?.username}</strong> ({user?.fullName})</p>
+              </div>
+              <button onClick={() => setShowChangePassModal(false)} className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">✕</button>
+            </div>
+
+            {passError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-3.5 py-2.5 rounded-xl text-xs font-medium">
+                {passError}
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Mật khẩu hiện tại (*)</label>
+                <div className="relative">
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    required
+                    placeholder="Nhập mật khẩu đang sử dụng..."
+                    value={changePassForm.currentPassword}
+                    onChange={e => setChangePassForm({ ...changePassForm, currentPassword: e.target.value })}
+                    className="w-full p-2.5 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(!showPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Mật khẩu mới (*)</label>
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  required
+                  placeholder="Tối thiểu 6 ký tự..."
+                  value={changePassForm.newPassword}
+                  onChange={e => setChangePassForm({ ...changePassForm, newPassword: e.target.value })}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Xác nhận mật khẩu mới (*)</label>
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  required
+                  placeholder="Nhập lại mật khẩu mới..."
+                  value={changePassForm.confirmPassword}
+                  onChange={e => setChangePassForm({ ...changePassForm, confirmPassword: e.target.value })}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePassModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={passLoading}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-bold shadow flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> {passLoading ? 'Đang lưu...' : 'Xác Nhận Đổi Mật Khẩu'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
