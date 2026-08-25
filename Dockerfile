@@ -4,8 +4,11 @@
 FROM node:20-alpine AS client-builder
 WORKDIR /app/client
 
+# Force development mode during build so devDependencies (tsc, vite) are installed
+ENV NODE_ENV=development
+
 COPY client/package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 COPY client/ ./
 RUN npm run build
@@ -16,9 +19,12 @@ RUN npm run build
 FROM node:20-alpine AS server-builder
 WORKDIR /app/server
 
+# Force development mode during build so typescript, ts-node are installed
+ENV NODE_ENV=development
+
 COPY server/package*.json ./
 COPY server/prisma ./prisma/
-RUN npm ci
+RUN npm ci --include=dev
 
 COPY server/ ./
 RUN npx prisma generate
@@ -41,7 +47,7 @@ WORKDIR /app/server
 RUN npm ci --only=production
 RUN npx prisma generate
 
-# Copy built server dist & SQLite database
+# Copy built server dist & initial SQLite database template
 COPY --from=server-builder /app/server/dist ./dist
 COPY server/prisma/dev.db* ./prisma/
 
@@ -49,7 +55,7 @@ COPY server/prisma/dev.db* ./prisma/
 COPY --from=client-builder /app/client/dist /app/client/dist
 
 # Create uploads directory and data persistence volume
-RUN mkdir -p /app/server/uploads
+RUN mkdir -p /app/server/uploads /app/data
 
 EXPOSE 3001
 
