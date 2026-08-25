@@ -4,11 +4,11 @@
 FROM node:20-alpine AS client-builder
 WORKDIR /app/client
 
-# Force development mode during build so devDependencies (tsc, vite) are installed
 ENV NODE_ENV=development
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 COPY client/package*.json ./
-RUN npm ci --include=dev
+RUN npm install
 
 COPY client/ ./
 RUN npm run build
@@ -19,12 +19,12 @@ RUN npm run build
 FROM node:20-alpine AS server-builder
 WORKDIR /app/server
 
-# Force development mode during build so typescript, ts-node are installed
 ENV NODE_ENV=development
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 COPY server/package*.json ./
 COPY server/prisma ./prisma/
-RUN npm ci --include=dev
+RUN npm install
 
 COPY server/ ./
 RUN npx prisma generate
@@ -44,7 +44,7 @@ COPY server/package*.json ./server/
 COPY server/prisma ./server/prisma/
 
 WORKDIR /app/server
-RUN npm ci --only=production
+RUN npm install --omit=dev
 RUN npx prisma generate
 
 # Copy built server dist & initial SQLite database template
@@ -60,3 +60,4 @@ RUN mkdir -p /app/server/uploads /app/data
 EXPOSE 3001
 
 CMD ["node", "dist/src/index.js"]
+
