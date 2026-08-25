@@ -17,8 +17,11 @@ export default function Login() {
     setError('');
     setLoading(true);
 
+    const cleanUser = username.trim().toLowerCase();
+    const cleanPass = password.trim();
+
     try {
-      const res = await apiPost('/auth/login', { username, password });
+      const res = await apiPost('/auth/login', { username: cleanUser, password: cleanPass });
       if (res.token && res.user) {
         login(res.token, res.user);
         navigate('/');
@@ -27,21 +30,7 @@ export default function Login() {
       throw new Error(res.error || 'Tên đăng nhập hoặc mật khẩu không chính xác');
     } catch (err: any) {
       console.warn('Login error:', err);
-      // Local fallback in case server was restarting
-      if (username === 'admin' && (password === 'admin123' || password === 'admin')) {
-        login('mock-admin-token', {
-          id: 1, username: 'admin', fullName: 'Quản Trị Viên Tối Cao (Ban Giám Đốc)', role: 'ADMIN'
-        });
-        navigate('/');
-      } else if (password === '123456') {
-        const role = username.startsWith('manager_') ? username.toUpperCase() : 'DEPARTMENT';
-        login('mock-token', {
-          id: 2, username, fullName: `Khoa/Phòng ${username.toUpperCase()}`, role, departmentId: 1
-        });
-        navigate('/');
-      } else {
-        setError(err.message || 'Tên đăng nhập hoặc mật khẩu không chính xác');
-      }
+      setError(err.message || 'Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!');
     } finally {
       setLoading(false);
     }
