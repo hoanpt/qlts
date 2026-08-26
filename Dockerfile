@@ -47,8 +47,9 @@ WORKDIR /app/server
 RUN npm install --omit=dev
 RUN npx prisma generate
 
-# Copy built server dist & initial SQLite database template
+# Copy built server dist & initial database seed data
 COPY --from=server-builder /app/server/dist ./dist
+COPY server/prisma/initial-seed-data.json* ./prisma/
 COPY server/prisma/dev.db* ./prisma/
 
 # Copy built client dist for SPA static serving
@@ -59,5 +60,5 @@ RUN mkdir -p /app/server/uploads /app/data
 
 EXPOSE 3001
 
-CMD ["node", "dist/src/index.js"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/src/index.js"]
 

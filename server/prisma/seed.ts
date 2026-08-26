@@ -1,90 +1,218 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Create Categories
-  const categories = [
-    { code: 'TBVP', name: 'Trang thiết bị văn phòng / Y tế' },
-    { code: 'CNTT', name: 'Thiết bị Công nghệ thông tin' },
-    { code: 'DUOC', name: 'Thiết bị Dược - Vật tư y tế' }
-  ];
-  for (const cat of categories) {
+  console.log('[Seed] Starting database seed for CDC Da Nang asset management...');
+
+  const dataPath = path.join(__dirname, 'initial-seed-data.json');
+  if (!fs.existsSync(dataPath)) {
+    console.error(`[Seed] Error: Seed data file not found at ${dataPath}`);
+    return;
+  }
+
+  const raw = fs.readFileSync(dataPath, 'utf-8');
+  const data = JSON.parse(raw);
+
+  // 1. Seed Asset Categories
+  console.log(`[Seed] Seeding ${data.categories.length} categories...`);
+  for (const cat of data.categories) {
     await prisma.assetCategory.upsert({
-      where: { code: cat.code },
-      update: {},
-      create: cat,
+      where: { id: cat.id },
+      update: { code: cat.code, name: cat.name, description: cat.description },
+      create: { id: cat.id, code: cat.code, name: cat.name, description: cat.description }
     });
   }
 
-  // Create Departments
-  const departments = [
-    { code: 'PKDK', name: 'Phòng Khám Đa Khoa', location: 'Cơ sở 1' },
-    { code: 'XN', name: 'Khoa Xét Nghiệm - CĐHA - TDCN', location: 'Cơ sở 1' },
-    { code: 'BNN', name: 'Khoa Bệnh Nghề Nghiệp', location: 'Cơ sở 1' },
-    { code: 'DD', name: 'Khoa Dinh Dưỡng', location: 'Cơ sở 1' },
-    { code: 'SKMT', name: 'Khoa Sức Khỏe Môi Trường', location: 'Cơ sở 1' },
-    { code: 'SKSS', name: 'Khoa Sức Khỏe Sinh Sản', location: 'Cơ sở 1' },
-    { code: 'KHNV', name: 'Phòng Kế Hoạch Nghiệp Vụ', location: 'Cơ sở 1' },
-    { code: 'TTGDSK', name: 'Khoa Truyền Thông Giáo Dục Sức Khỏe', location: 'Cơ sở 1' },
-    { code: 'KSTCT', name: 'Khoa Ký Sinh Trùng Côn Trùng', location: 'Cơ sở 1' },
-    { code: 'PCBKLN', name: 'Khoa Phòng Chống Bệnh Không Lây Nhiễm', location: 'Cơ sở 1' },
-    { code: 'DVTYT', name: 'Khoa Dược - Vật Tư Y Tế', location: 'Cơ sở 1' },
-    { code: 'HIV', name: 'Khoa HIV/AIDS và QLĐTNC', location: 'Cơ sở 1' },
-    { code: 'PCBTN', name: 'Khoa Phòng Chống Bệnh Truyền Nhiễm', location: 'Cơ sở 2' },
-    { code: 'TCKT', name: 'Phòng Tài Chính - Kế Toán', location: 'Cơ sở 1' },
-    { code: 'TCHC', name: 'Phòng Tổ Chức Hành Chính', location: 'Cơ sở 1' },
-    { code: 'KDYTQT', name: 'Khoa Kiểm Dịch Y Tế Quốc Tế', location: 'Cơ sở 1' }
-  ];
-
-  for (const dept of departments) {
+  // 2. Seed Departments
+  console.log(`[Seed] Seeding ${data.departments.length} departments...`);
+  for (const dept of data.departments) {
     await prisma.department.upsert({
-      where: { code: dept.code },
-      update: {},
-      create: dept,
+      where: { id: dept.id },
+      update: { code: dept.code, name: dept.name, location: dept.location, description: dept.description },
+      create: { id: dept.id, code: dept.code, name: dept.name, location: dept.location, description: dept.description }
     });
   }
 
-  // Create Admin
-  const adminPassword = await bcrypt.hash('admin123', 10);
-  await prisma.user.upsert({
-    where: { username: 'admin' },
-    update: {},
-    create: {
-      username: 'admin',
-      password: adminPassword,
-      fullName: 'Administrator',
-      role: 'ADMIN'
-    }
-  });
+  // 3. Seed Users
+  console.log(`[Seed] Seeding ${data.users.length} users...`);
+  for (const user of data.users) {
+    await prisma.user.upsert({
+      where: { username: user.username },
+      update: {
+        fullName: user.fullName,
+        role: user.role,
+        departmentId: user.departmentId,
+        password: user.password
+      },
+      create: {
+        username: user.username,
+        password: user.password,
+        fullName: user.fullName,
+        role: user.role,
+        departmentId: user.departmentId
+      }
+    });
+  }
 
-  // Create Department Users
-  for (const dept of departments) {
-    const deptRecord = await prisma.department.findUnique({ where: { code: dept.code } });
-    if (deptRecord) {
-      const username = dept.code.toLowerCase();
-      const password = await bcrypt.hash('123456', 10);
-      await prisma.user.upsert({
-        where: { username },
-        update: {},
+  // 4. Seed Committee Members
+  if (data.committee && data.committee.length > 0) {
+    console.log(`[Seed] Seeding ${data.committee.length} committee members...`);
+    for (const mem of data.committee) {
+      await prisma.inventoryCommitteeMember.upsert({
+        where: { id: mem.id },
+        update: {
+          fullName: mem.fullName,
+          position: mem.position,
+          role: mem.role,
+          departmentId: mem.departmentId,
+          scope: mem.scope,
+          isActive: mem.isActive,
+          displayOrder: mem.displayOrder
+        },
         create: {
-          username,
-          password,
-          fullName: dept.name,
-          role: 'DEPARTMENT',
-          departmentId: deptRecord.id
+          id: mem.id,
+          fullName: mem.fullName,
+          position: mem.position,
+          role: mem.role,
+          departmentId: mem.departmentId,
+          scope: mem.scope,
+          isActive: mem.isActive,
+          displayOrder: mem.displayOrder
         }
       });
     }
   }
 
-  console.log('Seed completed successfully.');
+  // 5. Seed Assets (in chunks of 100)
+  console.log(`[Seed] Seeding ${data.assets.length} assets...`);
+  const chunkSize = 100;
+  for (let i = 0; i < data.assets.length; i += chunkSize) {
+    const chunk = data.assets.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map((asset: any) =>
+        prisma.asset.upsert({
+          where: { id: asset.id },
+          update: {
+            assetCode: asset.assetCode,
+            name: asset.name,
+            categoryId: asset.categoryId,
+            departmentId: asset.departmentId,
+            location: asset.location,
+            locationDetail: asset.locationDetail,
+            assignedTo: asset.assignedTo,
+            yearInUse: asset.yearInUse,
+            originalPrice: asset.originalPrice,
+            currentValue: asset.currentValue,
+            depreciationRate: asset.depreciationRate,
+            manufacturer: asset.manufacturer,
+            countryOfOrigin: asset.countryOfOrigin,
+            specifications: asset.specifications,
+            status: asset.status,
+            managingUnit: asset.managingUnit,
+            floor: asset.floor,
+            buildingAsset: asset.buildingAsset,
+            bookQuantity: asset.bookQuantity,
+            actualQuantity: asset.actualQuantity,
+            quantityDifference: asset.quantityDifference,
+            source: asset.source,
+            fundingSource: asset.fundingSource,
+            decisionNumber: asset.decisionNumber,
+            note: asset.note,
+            qrCode: asset.qrCode
+          },
+          create: {
+            id: asset.id,
+            assetCode: asset.assetCode,
+            name: asset.name,
+            categoryId: asset.categoryId,
+            departmentId: asset.departmentId,
+            location: asset.location,
+            locationDetail: asset.locationDetail,
+            assignedTo: asset.assignedTo,
+            yearInUse: asset.yearInUse,
+            originalPrice: asset.originalPrice,
+            currentValue: asset.currentValue,
+            depreciationRate: asset.depreciationRate,
+            manufacturer: asset.manufacturer,
+            countryOfOrigin: asset.countryOfOrigin,
+            specifications: asset.specifications,
+            status: asset.status,
+            managingUnit: asset.managingUnit,
+            floor: asset.floor,
+            buildingAsset: asset.buildingAsset,
+            bookQuantity: asset.bookQuantity,
+            actualQuantity: asset.actualQuantity,
+            quantityDifference: asset.quantityDifference,
+            source: asset.source,
+            fundingSource: asset.fundingSource,
+            decisionNumber: asset.decisionNumber,
+            note: asset.note,
+            qrCode: asset.qrCode
+          }
+        })
+      )
+    );
+    if ((i + chunkSize) % 500 === 0 || i + chunkSize >= data.assets.length) {
+      console.log(`[Seed] Processed ${Math.min(i + chunkSize, data.assets.length)} / ${data.assets.length} assets...`);
+    }
+  }
+
+  // 6. Seed Calibrations
+  if (data.calibrations && data.calibrations.length > 0) {
+    console.log(`[Seed] Seeding ${data.calibrations.length} calibration records...`);
+    for (const cal of data.calibrations) {
+      await prisma.calibrationRecord.upsert({
+        where: { id: cal.id },
+        update: {
+          assetId: cal.assetId,
+          calibrationDate: new Date(cal.calibrationDate),
+          nextCalibrationDate: cal.nextCalibrationDate ? new Date(cal.nextCalibrationDate) : null,
+          performedBy: cal.performedBy,
+          vendor: cal.vendor,
+          result: cal.result,
+          certificateNumber: cal.certificateNumber,
+          note: cal.note,
+          serviceType: cal.serviceType,
+          servicePackage: cal.servicePackage,
+          cost: cal.cost,
+          decisionNumber: cal.decisionNumber,
+          acceptanceMembers: cal.acceptanceMembers,
+          fundingSource: cal.fundingSource,
+          deviceStatusAfter: cal.deviceStatusAfter,
+          departmentLocation: cal.departmentLocation
+        },
+        create: {
+          id: cal.id,
+          assetId: cal.assetId,
+          calibrationDate: new Date(cal.calibrationDate),
+          nextCalibrationDate: cal.nextCalibrationDate ? new Date(cal.nextCalibrationDate) : null,
+          performedBy: cal.performedBy,
+          vendor: cal.vendor,
+          result: cal.result,
+          certificateNumber: cal.certificateNumber,
+          note: cal.note,
+          serviceType: cal.serviceType,
+          servicePackage: cal.servicePackage,
+          cost: cal.cost,
+          decisionNumber: cal.decisionNumber,
+          acceptanceMembers: cal.acceptanceMembers,
+          fundingSource: cal.fundingSource,
+          deviceStatusAfter: cal.deviceStatusAfter,
+          departmentLocation: cal.departmentLocation
+        }
+      });
+    }
+  }
+
+  console.log('[Seed] Database seed completed successfully!');
 }
 
 main()
-  .catch(e => {
-    console.error(e);
+  .catch((e) => {
+    console.error('[Seed] Error seeding database:', e);
     process.exit(1);
   })
   .finally(async () => {

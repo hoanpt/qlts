@@ -114,7 +114,137 @@ const prisma = new PrismaClient();
 
 async function autoMigrateAndSeed() {
   try {
-    // 1. Dynamic safe column patch for existing SQLite databases (prevents missing column errors)
+    // 0. Auto-seed if database is empty (e.g. freshly created PostgreSQL instance)
+    const assetCount = await prisma.asset.count().catch(() => 0);
+    if (assetCount === 0) {
+      console.log('[Database] Database is empty. Auto-seeding all CDC Da Nang assets and departments...');
+      const seedDataCandidates = [
+        path.join(__dirname, '../prisma/initial-seed-data.json'),
+        path.join(__dirname, '../../prisma/initial-seed-data.json'),
+        path.join(process.cwd(), 'prisma/initial-seed-data.json'),
+        path.join(process.cwd(), 'server/prisma/initial-seed-data.json')
+      ];
+      const foundSeed = seedDataCandidates.find(p => fs.existsSync(p));
+      if (foundSeed) {
+        try {
+          const raw = fs.readFileSync(foundSeed, 'utf-8');
+          const data = JSON.parse(raw);
+
+          // Seed categories
+          for (const cat of data.categories) {
+            await prisma.assetCategory.upsert({
+              where: { id: cat.id },
+              update: { code: cat.code, name: cat.name, description: cat.description },
+              create: { id: cat.id, code: cat.code, name: cat.name, description: cat.description }
+            });
+          }
+
+          // Seed departments
+          for (const dept of data.departments) {
+            await prisma.department.upsert({
+              where: { id: dept.id },
+              update: { code: dept.code, name: dept.name, location: dept.location, description: dept.description },
+              create: { id: dept.id, code: dept.code, name: dept.name, location: dept.location, description: dept.description }
+            });
+          }
+
+          // Seed users
+          for (const user of data.users) {
+            await prisma.user.upsert({
+              where: { username: user.username },
+              update: { fullName: user.fullName, role: user.role, departmentId: user.departmentId, password: user.password },
+              create: { username: user.username, password: user.password, fullName: user.fullName, role: user.role, departmentId: user.departmentId }
+            });
+          }
+
+          // Seed committee
+          if (data.committee && data.committee.length > 0) {
+            for (const mem of data.committee) {
+              await prisma.inventoryCommitteeMember.upsert({
+                where: { id: mem.id },
+                update: { fullName: mem.fullName, position: mem.position, role: mem.role, departmentId: mem.departmentId, scope: mem.scope, isActive: mem.isActive, displayOrder: mem.displayOrder },
+                create: { id: mem.id, fullName: mem.fullName, position: mem.position, role: mem.role, departmentId: mem.departmentId, scope: mem.scope, isActive: mem.isActive, displayOrder: mem.displayOrder }
+              });
+            }
+          }
+
+          // Seed assets in chunks
+          const chunkSize = 100;
+          for (let i = 0; i < data.assets.length; i += chunkSize) {
+            const chunk = data.assets.slice(i, i + chunkSize);
+            await Promise.all(
+              chunk.map((asset: any) =>
+                prisma.asset.upsert({
+                  where: { id: asset.id },
+                  update: {
+                    assetCode: asset.assetCode,
+                    name: asset.name,
+                    categoryId: asset.categoryId,
+                    departmentId: asset.departmentId,
+                    location: asset.location,
+                    locationDetail: asset.locationDetail,
+                    assignedTo: asset.assignedTo,
+                    yearInUse: asset.yearInUse,
+                    originalPrice: asset.originalPrice,
+                    currentValue: asset.currentValue,
+                    depreciationRate: asset.depreciationRate,
+                    manufacturer: asset.manufacturer,
+                    countryOfOrigin: asset.countryOfOrigin,
+                    specifications: asset.specifications,
+                    status: asset.status,
+                    managingUnit: asset.managingUnit,
+                    floor: asset.floor,
+                    buildingAsset: asset.buildingAsset,
+                    bookQuantity: asset.bookQuantity,
+                    actualQuantity: asset.actualQuantity,
+                    quantityDifference: asset.quantityDifference,
+                    source: asset.source,
+                    fundingSource: asset.fundingSource,
+                    decisionNumber: asset.decisionNumber,
+                    note: asset.note,
+                    qrCode: asset.qrCode
+                  },
+                  create: {
+                    id: asset.id,
+                    assetCode: asset.assetCode,
+                    name: asset.name,
+                    categoryId: asset.categoryId,
+                    departmentId: asset.departmentId,
+                    location: asset.location,
+                    locationDetail: asset.locationDetail,
+                    assignedTo: asset.assignedTo,
+                    yearInUse: asset.yearInUse,
+                    originalPrice: asset.originalPrice,
+                    currentValue: asset.currentValue,
+                    depreciationRate: asset.depreciationRate,
+                    manufacturer: asset.manufacturer,
+                    countryOfOrigin: asset.countryOfOrigin,
+                    specifications: asset.specifications,
+                    status: asset.status,
+                    managingUnit: asset.managingUnit,
+                    floor: asset.floor,
+                    buildingAsset: asset.buildingAsset,
+                    bookQuantity: asset.bookQuantity,
+                    actualQuantity: asset.actualQuantity,
+                    quantityDifference: asset.quantityDifference,
+                    source: asset.source,
+                    fundingSource: asset.fundingSource,
+                    decisionNumber: asset.decisionNumber,
+                    note: asset.note,
+                    qrCode: asset.qrCode
+                  }
+                })
+              )
+            );
+          }
+          console.log(`[Database] Successfully auto-seeded ${data.assets.length} assets into PostgreSQL database!`);
+        } catch (seedErr) {
+          console.error('[Database] Error auto-seeding data:', seedErr);
+        }
+      }
+    }
+
+    // 1. Dynamic safe column patch for existing databases (prevents missing column errors)
     const tablesToPatch = [
       { table: 'Asset', column: 'fundingSource', type: 'TEXT' },
       { table: 'Asset', column: 'decisionNumber', type: 'TEXT' },
@@ -135,7 +265,7 @@ async function autoMigrateAndSeed() {
 
     for (const item of tablesToPatch) {
       try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE ${item.table} ADD COLUMN ${item.column} ${item.type};`);
+        await prisma.$executeRawUnsafe(`ALTER TABLE "${item.table}" ADD COLUMN IF NOT EXISTS "${item.column}" ${item.type};`);
       } catch {}
     }
 
