@@ -482,7 +482,7 @@ export default function Users() {
                     className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                   >
                     {departments.map(d => (
-                      <option key={d.id} value={d.id}>{d.code} - {d.name} ({d.location})</option>
+                      <option key={d.id} value={d.id}>{d.code} - {d.name.replace(/\s*\((?:Cơ sở|Cs)\s*[12]\)/gi, '')}</option>
                     ))}
                   </select>
                 </div>

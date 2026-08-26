@@ -23,6 +23,8 @@ export default function AssetForm() {
   const [categories, setCategories] = useState<AssetCategory[]>(FALLBACK_CATEGORIES);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(isEdit);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Determine initial managingUnit and default category code by role
   const isCntt = user?.role === 'MANAGER_CNTT';
@@ -65,7 +67,10 @@ export default function AssetForm() {
   });
 
   useEffect(() => {
+    let isMounted = true;
     const init = async () => {
+      if (isEdit) setPageLoading(true);
+      setFetchError(null);
       try {
         const [cRes, dRes] = await Promise.allSettled([
           apiGet('/categories'),
@@ -74,29 +79,34 @@ export default function AssetForm() {
         let loadedCats = FALLBACK_CATEGORIES;
         if (cRes.status === 'fulfilled' && Array.isArray(cRes.value) && cRes.value.length > 0) {
           loadedCats = cRes.value;
-          setCategories(loadedCats);
+          if (isMounted) setCategories(loadedCats);
         }
         if (dRes.status === 'fulfilled' && Array.isArray(dRes.value)) {
-          setDepartments(dRes.value);
+          if (isMounted) setDepartments(dRes.value);
         }
 
         if (isEdit && id) {
           const assetData = await apiGet(`/assets/${id}`);
+          if (!isMounted) return;
           if (assetData) {
+            const matchedCat = loadedCats.find(c => c.id === assetData.categoryId) ||
+                               loadedCats.find(c => c.code === assetData.managingUnit) ||
+                               loadedCats[0];
+
             setFormData({
               assetCode: assetData.assetCode || '',
               name: assetData.name || '',
-              categoryId: assetData.categoryId?.toString() || '1',
-              departmentId: assetData.departmentId?.toString() || '1',
+              categoryId: (assetData.categoryId || matchedCat?.id || 1).toString(),
+              departmentId: (assetData.departmentId || 1).toString(),
               managingUnit: assetData.managingUnit || defaultRoleUnit,
               floor: assetData.floor || 'Tầng 1',
               buildingAsset: assetData.buildingAsset || 0,
               location: assetData.location || 'Cơ sở 1',
               locationDetail: assetData.locationDetail || '',
               assignedTo: assetData.assignedTo || '',
-              yearInUse: assetData.yearInUse?.toString() || '',
-              originalPrice: assetData.originalPrice?.toString() || '',
-              depreciationRate: assetData.depreciationRate?.toString() || '10',
+              yearInUse: assetData.yearInUse !== null && assetData.yearInUse !== undefined ? assetData.yearInUse.toString() : '',
+              originalPrice: assetData.originalPrice !== null && assetData.originalPrice !== undefined ? assetData.originalPrice.toString() : '',
+              depreciationRate: assetData.depreciationRate !== null && assetData.depreciationRate !== undefined ? assetData.depreciationRate.toString() : '10',
               fundingSource: assetData.fundingSource || 'Nguồn ngân sách nhà nước cấp',
               decisionNumber: assetData.decisionNumber || '',
               manufacturer: assetData.manufacturer || '',
@@ -105,12 +115,14 @@ export default function AssetForm() {
               status: assetData.status || 'DANG_SU_DUNG',
               note: assetData.note || ''
             });
+          } else {
+            if (isMounted) setFetchError('Không tìm thấy dữ liệu thiết bị.');
           }
         } else {
           // Set initial category correctly for current role
           const targetCode = isCntt ? 'CNTT' : isTchc ? 'TCHC' : 'DUOC';
           const matchCat = loadedCats.find(c => c.code === targetCode) || loadedCats[0];
-          if (matchCat) {
+          if (matchCat && isMounted) {
             setFormData(prev => ({
               ...prev,
               categoryId: matchCat.id.toString(),
@@ -118,11 +130,15 @@ export default function AssetForm() {
             }));
           }
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('Error initializing form:', e);
+        if (isMounted) setFetchError(e.message || 'Lỗi khi tải dữ liệu thiết bị');
+      } finally {
+        if (isMounted) setPageLoading(false);
       }
     };
     init();
+    return () => { isMounted = false; };
   }, [id, isEdit]);
 
   // When category changes, auto set managing unit
@@ -191,6 +207,31 @@ export default function AssetForm() {
       setLoading(false);
     }
   };
+
+  if (pageLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-28 space-y-3">
+        <div className="w-9 h-9 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm font-semibold text-slate-600">Đang tải thông tin thiết bị...</p>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="max-w-md mx-auto my-16 p-6 bg-white rounded-2xl border border-red-200 text-center space-y-4 shadow-sm">
+        <div className="text-3xl">⚠️</div>
+        <h3 className="font-bold text-base text-slate-900">Không thể tải thông tin thiết bị</h3>
+        <p className="text-xs text-slate-500">{fetchError}</p>
+        <button
+          onClick={() => navigate('/assets')}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer transition"
+        >
+          Quay lại danh sách thiết bị
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-16">
@@ -302,11 +343,21 @@ export default function AssetForm() {
                 <select 
                   required
                   value={formData.departmentId}
-                  onChange={e => setFormData({ ...formData, departmentId: e.target.value })}
+                  onChange={e => {
+                    const deptIdStr = e.target.value;
+                    const foundDept = departments.find(d => d.id.toString() === deptIdStr);
+                    setFormData(prev => ({
+                      ...prev,
+                      departmentId: deptIdStr,
+                      ...(foundDept?.location ? { location: foundDept.location } : {})
+                    }));
+                  }}
                   className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 bg-white font-medium"
                 >
                   {departments.map(d => (
-                    <option key={d.id} value={d.id}>{d.code} - {d.name} ({d.location})</option>
+                    <option key={d.id} value={d.id}>
+                      {d.code} - {d.name.replace(/\s*\((?:Cơ sở|Cs)\s*[12]\)/gi, '')}
+                    </option>
                   ))}
                 </select>
               </div>

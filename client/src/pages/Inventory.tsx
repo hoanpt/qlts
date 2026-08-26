@@ -448,7 +448,7 @@ export default function Inventory() {
               >
                 {inventoryType !== 'BY_DEPT' && <option value="">Tất cả khoa / phòng</option>}
                 {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.code} - {d.name} ({d.location})</option>
+                  <option key={d.id} value={d.id}>{d.code} - {d.name.replace(/\s*\((?:Cơ sở|Cs)\s*[12]\)/gi, '')}</option>
                 ))}
               </select>
             </div>
