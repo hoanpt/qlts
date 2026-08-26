@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
-  Search, Plus, Download, Filter, Eye, Edit, Trash2, QrCode, RefreshCw,
+  Search, Plus, Download, Printer, Filter, Eye, Edit, Trash2, QrCode, RefreshCw,
   Stethoscope, Monitor, Building2, Layers, ChevronLeft, ChevronRight, X
 } from 'lucide-react';
 import { STATUS_LABELS, STATUS_COLORS, Asset, Department, AssetCategory } from '../types';
