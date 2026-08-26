@@ -539,9 +539,10 @@ export default function Disposals() {
               </button>
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
+                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
+                title="Xuất trực tiếp sang file PDF hoặc in ấn biên bản kiểm tra kỹ thuật A4"
               >
-                <Printer className="w-4 h-4" /> In Biên Bản Kỹ Thuật A4
+                <Printer className="w-4 h-4" /> Xuất PDF / In Biên Bản Kỹ Thuật A4
               </button>
             </div>
           </div>
@@ -598,7 +599,7 @@ export default function Disposals() {
                       <td className="p-2 font-semibold text-slate-900">{item.asset?.name}</td>
                       <td className="p-2">{item.asset?.department?.name || 'CDC'}</td>
                       <td className="p-2 text-slate-700">{item.technicalAssessment || item.reason}</td>
-                      <td className="p-2 text-center font-semibold text-red-700">Đề nghị thanh lý ({item.disposalMethod || 'Bán phế liệu'})</td>
+                      <td className="p-2 text-red-700 font-semibold">{item.solution || 'Đề nghị thanh lý tiêu hủy / bán phế liệu thu hồi'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -645,9 +646,10 @@ export default function Disposals() {
               </button>
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
+                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
+                title="Xuất trực tiếp sang file PDF hoặc in ấn biên bản họp Hội đồng thanh lý A4"
               >
-                <Printer className="w-4 h-4" /> In Biên Bản Họp HĐ A4
+                <Printer className="w-4 h-4" /> Xuất PDF / In Biên Bản Họp HĐ A4
               </button>
             </div>
           </div>

@@ -519,9 +519,10 @@ export default function Maintenance() {
 
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
+                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
+                title="Xuất trực tiếp sang file PDF hoặc in ấn báo cáo chuẩn A4"
               >
-                <Printer className="w-4 h-4" /> In Báo Cáo A4
+                <Printer className="w-4 h-4" /> Xuất PDF / In Báo Cáo A4
               </button>
             </div>
           </div>

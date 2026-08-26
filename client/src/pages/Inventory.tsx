@@ -321,20 +321,36 @@ export default function Inventory() {
               <Save className="w-4 h-4" /> {saving ? 'Đang lưu...' : 'Lưu kết quả kiểm kê'}
             </button>
 
-            <a
-              href={`http://localhost:3001/api/export/c53-hd?departmentId=${selectedDeptId || ''}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow transition"
+            <button
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (inventoryType === 'DUOC') params.append('managingUnit', 'DUOC');
+                else if (inventoryType === 'CNTT') params.append('managingUnit', 'CNTT');
+                else if (inventoryType === 'TCHC_HC') {
+                  params.append('managingUnit', 'TCHC');
+                  params.append('buildingAsset', '0');
+                } else if (inventoryType === 'TCHC_TOANHA') {
+                  params.append('managingUnit', 'TCHC');
+                  params.append('buildingAsset', '1');
+                  if (selectedFloor && selectedFloor !== 'Tất cả tầng') params.append('floor', selectedFloor);
+                }
+                if (selectedDeptId) params.append('departmentId', selectedDeptId);
+                params.append('inventoryDate', inventoryDate);
+                params.append('signaturesJson', JSON.stringify(signatures));
+
+                window.open(`/api/export/c53-hd?${params.toString()}`, '_blank');
+              }}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow transition cursor-pointer"
             >
               <Download className="w-4 h-4" /> Xuất Excel C53-HD
-            </a>
+            </button>
 
             <button
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs sm:text-sm font-semibold shadow transition cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow transition cursor-pointer"
+              title="Xuất trực tiếp sang file PDF hoặc in ấn chuẩn văn bản C53-HD"
             >
-              <Printer className="w-4 h-4" /> In biên bản (A4)
+              <Printer className="w-4 h-4" /> Xuất PDF / In C53-HD
             </button>
           </div>
         </div>

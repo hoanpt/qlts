@@ -150,17 +150,30 @@ export default function Assets() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <a
-            href="http://localhost:3001/api/export/assets"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 shadow-sm transition"
+          <button
+            onClick={() => {
+              const params = new URLSearchParams();
+              if (activeTab === 'DUOC') params.append('managingUnit', 'DUOC');
+              else if (activeTab === 'CNTT') params.append('managingUnit', 'CNTT');
+              else if (activeTab === 'TCHC_HC' || activeTab === 'TCHC_TOANHA') params.append('managingUnit', 'TCHC');
+              if (selectedDept) params.append('departmentId', selectedDept);
+              if (selectedStatus) params.append('status', selectedStatus);
+              window.open(`/api/export/assets?${params.toString()}`, '_blank');
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 shadow-sm transition cursor-pointer"
           >
-            <Download className="w-4 h-4" /> Xuất Excel
-          </a>
+            <Download className="w-4 h-4 text-emerald-600" /> Xuất Excel
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 shadow-sm transition cursor-pointer"
+            title="Xuất trực tiếp danh sách tài sản sang file PDF hoặc in"
+          >
+            <Printer className="w-4 h-4 text-rose-600" /> Xuất PDF / In
+          </button>
           <button
             onClick={() => navigate('/assets/new')}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow transition"
+            className="flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow transition cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Thêm thiết bị
           </button>
