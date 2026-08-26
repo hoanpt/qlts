@@ -30,7 +30,12 @@ export default function Transfers() {
       ]);
 
       if (tRes.status === 'fulfilled' && Array.isArray(tRes.value)) setTransfers(tRes.value);
-      if (aRes.status === 'fulfilled' && aRes.value?.assets) setAssets(aRes.value.assets);
+      if (aRes.status === 'fulfilled' && aRes.value?.assets) {
+        const sorted = [...aRes.value.assets].sort((a, b) =>
+          (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' })
+        );
+        setAssets(sorted);
+      }
       if (dRes.status === 'fulfilled' && Array.isArray(dRes.value)) setDepartments(dRes.value);
     } catch (e) {
       console.error('Error fetching transfers:', e);

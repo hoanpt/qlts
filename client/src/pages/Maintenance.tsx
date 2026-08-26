@@ -136,14 +136,16 @@ export default function Maintenance() {
   }, [activeTab, reportPeriodType, reportYear, reportMonth, reportQuarter]);
 
   // Filter available assets based on chosen Department AND Managing Unit
-  const departmentAssets = assets.filter(a => {
-    const deptMatch = a.departmentId.toString() === formData.departmentId;
-    const unitMatch = (a as any).managingUnit === formData.managingUnit || 
-      (formData.managingUnit === 'CNTT' && a.categoryId === 2) ||
-      (formData.managingUnit === 'DUOC' && a.categoryId === 1) ||
-      (formData.managingUnit === 'TCHC' && (a.categoryId === 3 || a.categoryId === 4));
-    return deptMatch && unitMatch;
-  });
+  const departmentAssets = assets
+    .filter(a => {
+      const deptMatch = a.departmentId.toString() === formData.departmentId;
+      const unitMatch = (a as any).managingUnit === formData.managingUnit || 
+        (formData.managingUnit === 'CNTT' && a.categoryId === 2) ||
+        (formData.managingUnit === 'DUOC' && a.categoryId === 1) ||
+        (formData.managingUnit === 'TCHC' && (a.categoryId === 3 || a.categoryId === 4));
+      return deptMatch && unitMatch;
+    })
+    .sort((a, b) => (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' }));
 
   // Handle Create Request
   const handleCreateSubmit = async (e: React.FormEvent) => {

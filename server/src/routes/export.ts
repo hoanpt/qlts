@@ -15,7 +15,11 @@ router.get('/assets', requireAuth, async (req: any, res) => {
 
     const assets = await prisma.asset.findMany({
       where,
-      include: { category: true, department: true }
+      include: { category: true, department: true },
+      orderBy: [
+        { departmentId: 'asc' },
+        { assetCode: 'asc' }
+      ]
     });
 
     const workbook = new ExcelJS.Workbook();
@@ -74,7 +78,10 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
     const assets = await prisma.asset.findMany({
       where,
       include: { category: true, department: true },
-      orderBy: { id: 'asc' }
+      orderBy: [
+        { departmentId: 'asc' },
+        { assetCode: 'asc' }
+      ]
     });
 
     const workbook = new ExcelJS.Workbook();

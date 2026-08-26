@@ -72,7 +72,10 @@ router.get('/', requireAuth, async (req: any, res) => {
         category: true,
         department: true
       },
-      orderBy: { id: 'asc' }
+      orderBy: [
+        { departmentId: 'asc' },
+        { assetCode: 'asc' }
+      ]
     });
     res.json({ total, page: pageNum, limit: limitNum, assets });
   } catch (error) {

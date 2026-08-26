@@ -126,6 +126,9 @@ export default function Inventory() {
           currentStatus: a.status || 'DANG_SU_DUNG',
           customNote: a.note || ''
         }));
+        mapped.sort((a: any, b: any) =>
+          (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' })
+        );
         setAssets(mapped);
       }
     } catch (e) {

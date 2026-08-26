@@ -109,7 +109,12 @@ export default function Disposals() {
 
       if (cRes.status === 'fulfilled' && Array.isArray(cRes.value)) setCampaigns(cRes.value);
       if (dRes.status === 'fulfilled' && Array.isArray(dRes.value)) setDisposals(dRes.value);
-      if (aRes.status === 'fulfilled' && aRes.value?.assets) setCandidateAssets(aRes.value.assets);
+      if (aRes.status === 'fulfilled' && aRes.value?.assets) {
+        const sorted = [...aRes.value.assets].sort((a, b) =>
+          (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' })
+        );
+        setCandidateAssets(sorted);
+      }
       if (deptRes.status === 'fulfilled' && Array.isArray(deptRes.value)) setDepartments(deptRes.value);
       if (mRes.status === 'fulfilled' && Array.isArray(mRes.value)) setCommitteeMembers(mRes.value);
     } catch (e) {
