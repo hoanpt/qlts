@@ -21,6 +21,7 @@ WORKDIR /app/server
 
 ENV NODE_ENV=development
 ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/qlts?schema=public"
 
 COPY server/package*.json ./
 COPY server/prisma ./prisma/
@@ -38,6 +39,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/qlts?schema=public"
 
 # Copy server package and production dependencies
 COPY server/package*.json ./server/
