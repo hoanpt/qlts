@@ -21,14 +21,13 @@ WORKDIR /app/server
 
 ENV NODE_ENV=development
 ENV NODE_OPTIONS="--max-old-space-size=2048"
-ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/qlts?schema=public"
 
 COPY server/package*.json ./
 COPY server/prisma ./prisma/
 RUN npm install
 
 COPY server/ ./
-RUN npx prisma generate
+RUN DATABASE_URL="postgresql://postgres:postgres@localhost:5432/qlts?schema=public" npx prisma generate
 RUN npm run build
 
 # ==========================================
@@ -39,7 +38,6 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3001
-ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/qlts?schema=public"
 
 # Copy server package and production dependencies
 COPY server/package*.json ./server/
@@ -47,12 +45,13 @@ COPY server/prisma ./server/prisma/
 
 WORKDIR /app/server
 RUN npm install --omit=dev
-RUN npx prisma generate
+RUN DATABASE_URL="postgresql://postgres:postgres@localhost:5432/qlts?schema=public" npx prisma generate
 
-# Copy built server dist & initial database seed data
+# Copy built server dist & initial database seed data & entrypoint
 COPY --from=server-builder /app/server/dist ./dist
 COPY server/prisma/initial-seed-data.json* ./prisma/
-COPY server/prisma/dev.db* ./prisma/
+COPY server/entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 
 # Copy built client dist for SPA static serving
 COPY --from=client-builder /app/client/dist /app/client/dist
@@ -62,5 +61,4 @@ RUN mkdir -p /app/server/uploads /app/data
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/src/index.js"]
-
+CMD ["/bin/sh", "/app/server/entrypoint.sh"]
