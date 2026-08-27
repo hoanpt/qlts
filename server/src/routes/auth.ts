@@ -117,9 +117,12 @@ router.post('/login', async (req, res) => {
         departmentId: user.departmentId
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Lỗi hệ thống trong quá trình đăng nhập' });
+    const detail = error?.message || 'Database connection error';
+    res.status(500).json({ 
+      error: `Lỗi kết nối cơ sở dữ liệu: ${detail}. Vui lòng kiểm tra chuỗi kết nối DATABASE_URL trên Coolify.` 
+    });
   }
 });
 

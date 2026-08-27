@@ -81,9 +81,26 @@ app.use('/api/export', exportRoutes);
 app.use('/api/committee', committeeRoutes);
 app.use('/api/users', userRoutes);
 
-// Health check endpoint for Coolify / Docker
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
+// Health check & Database connection diagnostic endpoint for Coolify / Docker
+app.get('/api/health', async (req, res) => {
+  try {
+    const userCount = await prisma.user.count();
+    const assetCount = await prisma.asset.count();
+    res.json({
+      status: 'ok',
+      database: 'connected',
+      userCount,
+      assetCount,
+      time: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      status: 'database_error',
+      database: 'disconnected',
+      error: err?.message || String(err),
+      time: new Date().toISOString()
+    });
+  }
 });
 
 // Serve frontend static assets in production if client/dist exists
