@@ -47,11 +47,9 @@ WORKDIR /app/server
 RUN npm install --omit=dev
 RUN DATABASE_URL="postgresql://postgres:postgres@localhost:5432/qlts?schema=public" npx prisma generate
 
-# Copy built server dist & initial database seed data & entrypoint
+# Copy built server dist & initial database seed data
 COPY --from=server-builder /app/server/dist ./dist
 COPY server/prisma/initial-seed-data.json* ./prisma/
-COPY server/entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
 
 # Copy built client dist for SPA static serving
 COPY --from=client-builder /app/client/dist /app/client/dist
@@ -61,4 +59,4 @@ RUN mkdir -p /app/server/uploads /app/data
 
 EXPOSE 3001
 
-CMD ["/bin/sh", "/app/server/entrypoint.sh"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss || true; node dist/src/index.js"]
