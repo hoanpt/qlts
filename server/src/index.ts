@@ -261,6 +261,181 @@ async function autoMigrateAndSeed() {
       }
     }
 
+    const seedDataCandidates = [
+      path.join(__dirname, '../prisma/initial-seed-data.json'),
+      path.join(__dirname, '../../prisma/initial-seed-data.json'),
+      path.join(process.cwd(), 'prisma/initial-seed-data.json'),
+      path.join(process.cwd(), 'server/prisma/initial-seed-data.json')
+    ];
+    const foundSeed = seedDataCandidates.find(p => fs.existsSync(p));
+
+    // Ensure Calibrations are seeded (Hiệu chuẩn / Kiểm định TBYT)
+    const calibCount = await prisma.calibrationRecord.count().catch(() => 0);
+    if (calibCount === 0 && foundSeed) {
+      try {
+        const raw = fs.readFileSync(foundSeed, 'utf-8');
+        const data = JSON.parse(raw);
+        if (data.calibrations && data.calibrations.length > 0) {
+          console.log(`[Database] Auto-seeding ${data.calibrations.length} calibration records for TBYT...`);
+          for (const cal of data.calibrations) {
+            await prisma.calibrationRecord.upsert({
+              where: { id: cal.id },
+              update: {
+                assetId: cal.assetId,
+                calibrationDate: new Date(cal.calibrationDate),
+                nextCalibrationDate: cal.nextCalibrationDate ? new Date(cal.nextCalibrationDate) : null,
+                performedBy: cal.performedBy,
+                vendor: cal.vendor,
+                result: cal.result,
+                certificateNumber: cal.certificateNumber,
+                note: cal.note,
+                serviceType: cal.serviceType,
+                servicePackage: cal.servicePackage,
+                cost: cal.cost,
+                decisionNumber: cal.decisionNumber,
+                acceptanceMembers: cal.acceptanceMembers,
+                fundingSource: cal.fundingSource,
+                deviceStatusAfter: cal.deviceStatusAfter,
+                departmentLocation: cal.departmentLocation
+              },
+              create: {
+                id: cal.id,
+                assetId: cal.assetId,
+                calibrationDate: new Date(cal.calibrationDate),
+                nextCalibrationDate: cal.nextCalibrationDate ? new Date(cal.nextCalibrationDate) : null,
+                performedBy: cal.performedBy,
+                vendor: cal.vendor,
+                result: cal.result,
+                certificateNumber: cal.certificateNumber,
+                note: cal.note,
+                serviceType: cal.serviceType,
+                servicePackage: cal.servicePackage,
+                cost: cal.cost,
+                decisionNumber: cal.decisionNumber,
+                acceptanceMembers: cal.acceptanceMembers,
+                fundingSource: cal.fundingSource,
+                deviceStatusAfter: cal.deviceStatusAfter,
+                departmentLocation: cal.departmentLocation
+              }
+            });
+          }
+          console.log(`[Database] Successfully seeded ${data.calibrations.length} calibration records!`);
+        }
+      } catch (err) {
+        console.error('[Database] Error seeding calibration records:', err);
+      }
+    }
+
+    // Ensure Maintenance/Repair records are seeded (Sửa chữa / Bảo trì TBYT & CNTT)
+    const maintCount = await prisma.maintenanceRequest.count().catch(() => 0);
+    if (maintCount === 0 && foundSeed) {
+      try {
+        const raw = fs.readFileSync(foundSeed, 'utf-8');
+        const data = JSON.parse(raw);
+        if (data.maintenance && data.maintenance.length > 0) {
+          console.log(`[Database] Auto-seeding ${data.maintenance.length} maintenance/repair records...`);
+          for (const m of data.maintenance) {
+            await prisma.maintenanceRequest.upsert({
+              where: { id: m.id },
+              update: {
+                assetId: m.assetId,
+                requestedBy: m.requestedBy,
+                contactPhone: m.contactPhone,
+                departmentId: m.departmentId,
+                managingUnit: m.managingUnit,
+                locationDetail: m.locationDetail,
+                issueDescription: m.issueDescription,
+                priority: m.priority,
+                status: m.status,
+                repairCost: m.repairCost,
+                repairVendor: m.repairVendor,
+                repairNote: m.repairNote,
+                technicianName: m.technicianName,
+                maintenanceType: m.maintenanceType,
+                servicePackage: m.servicePackage,
+                replacementParts: m.replacementParts,
+                acceptanceMembers: m.acceptanceMembers,
+                fundingSource: m.fundingSource,
+                decisionNumber: m.decisionNumber,
+                deviceStatusAfter: m.deviceStatusAfter,
+                proposalDate: m.proposalDate ? new Date(m.proposalDate) : null,
+                approvalDate: m.approvalDate ? new Date(m.approvalDate) : null,
+                requestDate: m.requestDate ? new Date(m.requestDate) : new Date(),
+                completedDate: m.completedDate ? new Date(m.completedDate) : null
+              },
+              create: {
+                id: m.id,
+                assetId: m.assetId,
+                requestedBy: m.requestedBy,
+                contactPhone: m.contactPhone,
+                departmentId: m.departmentId,
+                managingUnit: m.managingUnit,
+                locationDetail: m.locationDetail,
+                issueDescription: m.issueDescription,
+                priority: m.priority,
+                status: m.status,
+                repairCost: m.repairCost,
+                repairVendor: m.repairVendor,
+                repairNote: m.repairNote,
+                technicianName: m.technicianName,
+                maintenanceType: m.maintenanceType,
+                servicePackage: m.servicePackage,
+                replacementParts: m.replacementParts,
+                acceptanceMembers: m.acceptanceMembers,
+                fundingSource: m.fundingSource,
+                decisionNumber: m.decisionNumber,
+                deviceStatusAfter: m.deviceStatusAfter,
+                proposalDate: m.proposalDate ? new Date(m.proposalDate) : null,
+                approvalDate: m.approvalDate ? new Date(m.approvalDate) : null,
+                requestDate: m.requestDate ? new Date(m.requestDate) : new Date(),
+                completedDate: m.completedDate ? new Date(m.completedDate) : null
+              }
+            });
+          }
+          console.log(`[Database] Successfully seeded ${data.maintenance.length} maintenance records!`);
+        }
+      } catch (err) {
+        console.error('[Database] Error seeding maintenance records:', err);
+      }
+    }
+
+    // Ensure Campaigns are seeded
+    const campCount = await prisma.disposalCampaign.count().catch(() => 0);
+    if (campCount === 0 && foundSeed) {
+      try {
+        const raw = fs.readFileSync(foundSeed, 'utf-8');
+        const data = JSON.parse(raw);
+        if (data.campaigns && data.campaigns.length > 0) {
+          for (const c of data.campaigns) {
+            await prisma.disposalCampaign.upsert({
+              where: { id: c.id },
+              update: {
+                title: c.title,
+                campaignCode: c.campaignCode,
+                startDate: new Date(c.startDate),
+                endDate: c.endDate ? new Date(c.endDate) : null,
+                status: c.status,
+                description: c.description,
+                issuedBy: c.issuedBy
+              },
+              create: {
+                id: c.id,
+                title: c.title,
+                campaignCode: c.campaignCode,
+                startDate: new Date(c.startDate),
+                endDate: c.endDate ? new Date(c.endDate) : null,
+                status: c.status,
+                description: c.description,
+                issuedBy: c.issuedBy
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[Database] Error seeding disposal campaigns:', err);
+      }
+    }
+
     // 1. Dynamic safe column patch for existing databases (prevents missing column errors)
     const tablesToPatch = [
       { table: 'Asset', column: 'fundingSource', type: 'TEXT' },

@@ -207,6 +207,98 @@ async function main() {
     }
   }
 
+  // 7. Seed Maintenance / Repair records
+  if (data.maintenance && data.maintenance.length > 0) {
+    console.log(`[Seed] Seeding ${data.maintenance.length} maintenance/repair records...`);
+    for (const m of data.maintenance) {
+      await prisma.maintenanceRequest.upsert({
+        where: { id: m.id },
+        update: {
+          assetId: m.assetId,
+          requestedBy: m.requestedBy,
+          contactPhone: m.contactPhone,
+          departmentId: m.departmentId,
+          managingUnit: m.managingUnit,
+          locationDetail: m.locationDetail,
+          issueDescription: m.issueDescription,
+          priority: m.priority,
+          status: m.status,
+          repairCost: m.repairCost,
+          repairVendor: m.repairVendor,
+          repairNote: m.repairNote,
+          technicianName: m.technicianName,
+          maintenanceType: m.maintenanceType,
+          servicePackage: m.servicePackage,
+          replacementParts: m.replacementParts,
+          acceptanceMembers: m.acceptanceMembers,
+          fundingSource: m.fundingSource,
+          decisionNumber: m.decisionNumber,
+          deviceStatusAfter: m.deviceStatusAfter,
+          proposalDate: m.proposalDate ? new Date(m.proposalDate) : null,
+          approvalDate: m.approvalDate ? new Date(m.approvalDate) : null,
+          requestDate: m.requestDate ? new Date(m.requestDate) : new Date(),
+          completedDate: m.completedDate ? new Date(m.completedDate) : null
+        },
+        create: {
+          id: m.id,
+          assetId: m.assetId,
+          requestedBy: m.requestedBy,
+          contactPhone: m.contactPhone,
+          departmentId: m.departmentId,
+          managingUnit: m.managingUnit,
+          locationDetail: m.locationDetail,
+          issueDescription: m.issueDescription,
+          priority: m.priority,
+          status: m.status,
+          repairCost: m.repairCost,
+          repairVendor: m.repairVendor,
+          repairNote: m.repairNote,
+          technicianName: m.technicianName,
+          maintenanceType: m.maintenanceType,
+          servicePackage: m.servicePackage,
+          replacementParts: m.replacementParts,
+          acceptanceMembers: m.acceptanceMembers,
+          fundingSource: m.fundingSource,
+          decisionNumber: m.decisionNumber,
+          deviceStatusAfter: m.deviceStatusAfter,
+          proposalDate: m.proposalDate ? new Date(m.proposalDate) : null,
+          approvalDate: m.approvalDate ? new Date(m.approvalDate) : null,
+          requestDate: m.requestDate ? new Date(m.requestDate) : new Date(),
+          completedDate: m.completedDate ? new Date(m.completedDate) : null
+        }
+      });
+    }
+  }
+
+  // 8. Seed Campaigns
+  if (data.campaigns && data.campaigns.length > 0) {
+    console.log(`[Seed] Seeding ${data.campaigns.length} disposal campaigns...`);
+    for (const c of data.campaigns) {
+      await prisma.disposalCampaign.upsert({
+        where: { id: c.id },
+        update: {
+          title: c.title,
+          campaignCode: c.campaignCode,
+          startDate: new Date(c.startDate),
+          endDate: c.endDate ? new Date(c.endDate) : null,
+          status: c.status,
+          description: c.description,
+          issuedBy: c.issuedBy
+        },
+        create: {
+          id: c.id,
+          title: c.title,
+          campaignCode: c.campaignCode,
+          startDate: new Date(c.startDate),
+          endDate: c.endDate ? new Date(c.endDate) : null,
+          status: c.status,
+          description: c.description,
+          issuedBy: c.issuedBy
+        }
+      });
+    }
+  }
+
   console.log('[Seed] Database seed completed successfully!');
 }
 
