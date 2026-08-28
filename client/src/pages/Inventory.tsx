@@ -460,16 +460,22 @@ export default function Inventory() {
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                 {inventoryType === 'BY_DEPT' ? 'Khoa / Phòng cần kiểm kê (*)' : 'Lọc theo Khoa / Phòng sử dụng (Tùy chọn)'}
               </label>
-              <select
-                value={selectedDeptId}
-                onChange={e => setSelectedDeptId(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                {inventoryType !== 'BY_DEPT' && <option value="">Tất cả khoa / phòng</option>}
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.code} - {d.name.replace(/\s*\((?:Cơ sở|Cs)\s*[12]\)/gi, '')}</option>
-                ))}
-              </select>
+              {user?.role === 'DEPARTMENT' ? (
+                <div className="w-full px-3.5 py-2 border border-slate-200 bg-slate-100 rounded-xl text-xs sm:text-sm font-bold text-slate-800">
+                  {user.fullName || departments.find(d => d.id === user.departmentId)?.name || 'Khoa / Phòng của bạn'}
+                </div>
+              ) : (
+                <select
+                  value={selectedDeptId}
+                  onChange={e => setSelectedDeptId(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  {inventoryType !== 'BY_DEPT' && <option value="">Tất cả khoa / phòng</option>}
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id}>{d.code} - {d.name.replace(/\s*\((?:Cơ sở|Cs)\s*[12]\)/gi, '')}</option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
 

@@ -38,14 +38,17 @@ export default function Assets() {
   // Filters
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [selectedFloor, setSelectedFloor] = useState(searchParams.get('floor') || 'Tất cả tầng');
-  const [selectedDept, setSelectedDept] = useState(searchParams.get('departmentId') || '');
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('');
-  
-  // Pagination
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 15;
+
+  const isDeptUser = user?.role === 'DEPARTMENT';
+  const defaultDept = isDeptUser && user.departmentId ? user.departmentId.toString() : '';
+
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedDept, setSelectedDept] = useState<string>(defaultDept);
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
 
   const fetchAssets = async () => {
     setLoading(true);
@@ -70,7 +73,8 @@ export default function Assets() {
         params.append('floor', selectedFloor);
       }
 
-      if (selectedDept) params.append('departmentId', selectedDept);
+      const effectiveDept = isDeptUser && user.departmentId ? user.departmentId.toString() : selectedDept;
+      if (effectiveDept) params.append('departmentId', effectiveDept);
       if (selectedStatus) params.append('status', selectedStatus);
       if (selectedLocation) params.append('location', selectedLocation);
       
@@ -118,12 +122,11 @@ export default function Assets() {
 
   const resetFilters = () => {
     setSearchTerm('');
-    setSelectedFloor('Tất cả tầng');
-    setSelectedDept('');
+    if (!isDeptUser) setSelectedDept('');
     setSelectedStatus('');
     setSelectedLocation('');
+    setSelectedFloor('Tất cả tầng');
     setPage(1);
-    setActiveTab('ALL');
   };
 
   const handleDelete = async (id: number, name: string) => {
@@ -143,9 +146,13 @@ export default function Assets() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Danh mục thiết bị & Tài sản CDC</h1>
+          <h1 className="text-2xl font-bold text-slate-900">
+            {isDeptUser ? `Danh mục Tài sản - ${user?.fullName}` : 'Danh mục thiết bị & Tài sản CDC'}
+          </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Tổng số: <strong>{total.toLocaleString('vi-VN')}</strong> tài sản theo đúng 3 khối quản lý chuyên trách
+            {isDeptUser 
+              ? `Tổng số: ${total.toLocaleString('vi-VN')} tài sản do khoa/phòng trực tiếp quản lý và sử dụng`
+              : `Tổng số: ${total.toLocaleString('vi-VN')} tài sản theo đúng 3 khối quản lý chuyên trách`}
           </p>
         </div>
 
@@ -156,7 +163,8 @@ export default function Assets() {
               if (activeTab === 'DUOC') params.append('managingUnit', 'DUOC');
               else if (activeTab === 'CNTT') params.append('managingUnit', 'CNTT');
               else if (activeTab === 'TCHC_HC' || activeTab === 'TCHC_TOANHA') params.append('managingUnit', 'TCHC');
-              if (selectedDept) params.append('departmentId', selectedDept);
+              const effectiveDept = isDeptUser && user.departmentId ? user.departmentId.toString() : selectedDept;
+              if (effectiveDept) params.append('departmentId', effectiveDept);
               if (selectedStatus) params.append('status', selectedStatus);
               window.open(`/api/export/assets?${params.toString()}`, '_blank');
             }}
@@ -315,21 +323,23 @@ export default function Assets() {
           </button>
         </form>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-100 text-xs">
-          {/* Department Filter */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Khoa / Phòng sử dụng</label>
-            <select
-              value={selectedDept}
-              onChange={e => { setSelectedDept(e.target.value); setPage(1); }}
-              className="w-full p-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              <option value="">Tất cả 16 khoa/phòng</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
-              ))}
-            </select>
-          </div>
+        <div className={`grid gap-3 pt-2 border-t border-slate-100 text-xs ${isDeptUser ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+          {/* Department Filter (Only for Admin / Managers) */}
+          {!isDeptUser && (
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Khoa / Phòng sử dụng</label>
+              <select
+                value={selectedDept}
+                onChange={e => { setSelectedDept(e.target.value); setPage(1); }}
+                className="w-full p-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="">Tất cả 16 khoa/phòng</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Location Filter */}
           <div>

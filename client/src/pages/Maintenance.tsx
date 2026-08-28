@@ -272,7 +272,8 @@ export default function Maintenance() {
   // Handle Export Excel with user criteria
   const handleExportExcel = () => {
     const params = new URLSearchParams();
-    if (deptFilter && deptFilter !== 'ALL') params.append('departmentId', deptFilter);
+    const effectiveDept = user?.role === 'DEPARTMENT' && user.departmentId ? user.departmentId.toString() : deptFilter;
+    if (effectiveDept && effectiveDept !== 'ALL') params.append('departmentId', effectiveDept);
     if (unitFilter && unitFilter !== 'ALL') params.append('managingUnit', unitFilter);
     if (statusFilter && statusFilter !== 'ALL') params.append('status', statusFilter);
     if (priorityFilter && priorityFilter !== 'ALL') params.append('priority', priorityFilter);
@@ -438,16 +439,18 @@ export default function Maintenance() {
                 <option value="TCHC">Phòng TCHC</option>
               </select>
 
-              <select
-                value={deptFilter}
-                onChange={e => setDeptFilter(e.target.value)}
-                className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                <option value="ALL">-- Khoa / Phòng gửi yêu cầu --</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
-                ))}
-              </select>
+              {user?.role !== 'DEPARTMENT' && (
+                <select
+                  value={deptFilter}
+                  onChange={e => setDeptFilter(e.target.value)}
+                  className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="ALL">-- Khoa / Phòng gửi yêu cầu --</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id.toString()}>{d.code} - {d.name}</option>
+                  ))}
+                </select>
+              )}
 
               <select
                 value={statusFilter}
@@ -841,16 +844,22 @@ export default function Maintenance() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 uppercase mb-1">Khoa / Phòng yêu cầu (*)</label>
-                  <select
-                    required
-                    value={formData.departmentId}
-                    onChange={e => setFormData({ ...formData, departmentId: e.target.value, assetId: '' })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
-                  >
-                    {departments.map(d => (
-                      <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
-                    ))}
-                  </select>
+                  {user?.role === 'DEPARTMENT' ? (
+                    <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-800">
+                      {user.fullName || departments.find(d => d.id === user.departmentId)?.name || 'Khoa / Phòng của bạn'}
+                    </div>
+                  ) : (
+                    <select
+                      required
+                      value={formData.departmentId}
+                      onChange={e => setFormData({ ...formData, departmentId: e.target.value, assetId: '' })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                    >
+                      {departments.map(d => (
+                        <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -1310,15 +1319,21 @@ export default function Maintenance() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 uppercase mb-1">Khoa / Phòng sử dụng</label>
-                  <select
-                    value={editData.departmentId}
-                    onChange={e => setEditData({ ...editData, departmentId: e.target.value, assetId: '' })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    {departments.map(d => (
-                      <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
-                    ))}
-                  </select>
+                  {user?.role === 'DEPARTMENT' ? (
+                    <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-800">
+                      {user.fullName || departments.find(d => d.id.toString() === editData.departmentId)?.name || 'Khoa / Phòng của bạn'}
+                    </div>
+                  ) : (
+                    <select
+                      value={editData.departmentId}
+                      onChange={e => setEditData({ ...editData, departmentId: e.target.value, assetId: '' })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      {departments.map(d => (
+                        <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>

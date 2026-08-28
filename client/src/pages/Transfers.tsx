@@ -163,17 +163,23 @@ export default function Transfers() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Từ Khoa / Phòng (*)</label>
-                <select
-                  required
-                  value={fromDeptId}
-                  onChange={e => setFromDeptId(e.target.value)}
-                  className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- Khoa chuyển đi --</option>
-                  {departments.map(d => (
-                    <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
-                  ))}
-                </select>
+                {user?.role === 'DEPARTMENT' ? (
+                  <div className="w-full border border-slate-200 bg-slate-100 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800">
+                    {user.fullName || departments.find(d => d.id === user.departmentId)?.name || 'Khoa / Phòng của bạn'}
+                  </div>
+                ) : (
+                  <select
+                    required
+                    value={fromDeptId}
+                    onChange={e => setFromDeptId(e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Khoa chuyển đi --</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div>
@@ -185,9 +191,11 @@ export default function Transfers() {
                   className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">-- Khoa tiếp nhận --</option>
-                  {departments.map(d => (
-                    <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
-                  ))}
+                  {departments
+                    .filter(d => user?.role !== 'DEPARTMENT' || d.id !== user.departmentId)
+                    .map(d => (
+                      <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                    ))}
                 </select>
               </div>
 

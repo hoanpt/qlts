@@ -404,16 +404,18 @@ export default function Disposals() {
                 <option value="TCHC">Khối Phòng TCHC</option>
               </select>
 
-              <select
-                value={selectedDeptId}
-                onChange={e => setSelectedDeptId(e.target.value)}
-                className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                <option value="ALL">-- Tất cả 16 Khoa / Phòng --</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
-                ))}
-              </select>
+              {user?.role !== 'DEPARTMENT' && (
+                <select
+                  value={selectedDeptId}
+                  onChange={e => setSelectedDeptId(e.target.value)}
+                  className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="ALL">-- Tất cả 16 Khoa / Phòng --</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id.toString()}>{d.code} - {d.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div className="relative">

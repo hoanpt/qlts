@@ -343,10 +343,12 @@ export default function Dashboard() {
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
           <div>
             <h3 className="font-bold text-sm text-slate-900 mb-1">
-              {isCntt ? 'Phân bổ 713 thiết bị CNTT theo khoa/phòng' : 'Tài sản theo đơn vị sử dụng (Top 8)'}
+              {user?.role === 'DEPARTMENT' ? 'Phân bổ tài sản của khoa' :
+               isCntt ? 'Phân bổ 713 thiết bị CNTT theo khoa/phòng' : 'Tài sản theo đơn vị sử dụng (Top 8)'}
             </h3>
             <p className="text-xs text-slate-400">
-              {isCntt ? 'Số lượng thiết bị CNTT các khoa đang trực tiếp sử dụng' : 'Khoa / phòng có số lượng thiết bị lớn'}
+              {user?.role === 'DEPARTMENT' ? `Số lượng tài sản do ${user.fullName} trực tiếp quản lý` :
+               isCntt ? 'Số lượng thiết bị CNTT các khoa đang trực tiếp sử dụng' : 'Khoa / phòng có số lượng thiết bị lớn'}
             </p>
           </div>
 
@@ -389,7 +391,9 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="font-bold text-slate-900">Danh mục thiết bị mới cập nhật</h3>
-            <p className="text-xs text-slate-500">Xem nhanh tài sản theo từng khối quản lý</p>
+            <p className="text-xs text-slate-500">
+              {user?.role === 'DEPARTMENT' ? `Tài sản thuộc quản lý của ${user.fullName}` : 'Xem nhanh tài sản theo từng khối quản lý'}
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -406,9 +410,9 @@ export default function Dashboard() {
 
             <button
               onClick={() => navigate('/assets')}
-              className="px-4 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition"
+              className="px-4 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition cursor-pointer"
             >
-              Xem tất cả 3,684 tài sản →
+              {user?.role === 'DEPARTMENT' ? `Xem tất cả ${stats.totalAssets || 0} tài sản của khoa →` : 'Xem tất cả 3,684 tài sản →'}
             </button>
           </div>
         </div>
