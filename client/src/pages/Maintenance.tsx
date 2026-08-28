@@ -3,7 +3,7 @@ import {
   Plus, Search, Filter, Wrench, AlertTriangle, CheckCircle, Clock, 
   XCircle, Printer, Building2, Monitor, Stethoscope, Layers, FileText,
   Calendar, DollarSign, User, Phone, CheckCircle2, ChevronRight, BarChart2, Users,
-  Download, Edit3, Trash2
+  Download, Edit3, Trash2, Eye, X, Check
 } from 'lucide-react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
 import { MaintenanceRequest, Asset, Department, PRIORITY_LABELS } from '../types';
@@ -18,6 +18,11 @@ export default function Maintenance() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRequest, setEditingRequest] = useState<any>(null);
+
+  // Detail & Print State
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailRequest, setDetailRequest] = useState<MaintenanceRequest | null>(null);
+  const [detailPrintTab, setDetailPrintTab] = useState<'PROPOSAL' | 'ACCEPTANCE'>('PROPOSAL');
 
   // Filters
   const [search, setSearch] = useState('');
@@ -325,6 +330,13 @@ export default function Maintenance() {
     }
   };
 
+  // Open Detail & Print Modal
+  const handleOpenDetail = (req: MaintenanceRequest, printTab: 'PROPOSAL' | 'ACCEPTANCE' = 'PROPOSAL') => {
+    setDetailRequest(req);
+    setDetailPrintTab(printTab);
+    setShowDetailModal(true);
+  };
+
   // Delete Request
   const handleDeleteRequest = async (id: number) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa phiếu báo hỏng / sửa chữa này?')) return;
@@ -628,6 +640,20 @@ export default function Maintenance() {
                       </td>
                       <td className="p-3.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenDetail(r, 'PROPOSAL')}
+                            className="p-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white rounded-lg transition cursor-pointer"
+                            title="Xem chi tiết thiết bị & sự cố"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenDetail(r, 'ACCEPTANCE')}
+                            className="p-1.5 bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white rounded-lg transition cursor-pointer"
+                            title="In phiếu đề xuất / nghiệm thu sửa chữa (A4)"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
                           <button
                             onClick={() => handleOpenEdit(r)}
                             className="p-1.5 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white rounded-lg transition cursor-pointer"
@@ -1869,6 +1895,322 @@ export default function Maintenance() {
                   <Download className="w-4 h-4" /> Tải File Excel
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 5. MODAL XEM CHI TIẾT & IN PHIẾU SỬA CHỮA / BÁO HỎNG (KHỔ A4)               */}
+      {/* ========================================================================= */}
+      {showDetailModal && detailRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[94vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-slate-900 to-blue-900 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/15 rounded-xl backdrop-blur-sm">
+                  <Wrench className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-base">Hồ Sơ Sửa Chữa Thiết Bị: {detailRequest.asset?.assetCode}</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      detailRequest.status === 'COMPLETED' ? 'bg-emerald-500 text-white' :
+                      detailRequest.status === 'IN_PROGRESS' ? 'bg-blue-500 text-white' :
+                      detailRequest.status === 'REJECTED' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'
+                    }`}>
+                      {detailRequest.status === 'COMPLETED' ? 'Đã hoàn thành' :
+                       detailRequest.status === 'IN_PROGRESS' ? 'Đang xử lý' :
+                       detailRequest.status === 'REJECTED' ? 'Từ chối' : 'Chờ tiếp nhận'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-200 truncate max-w-md">{detailRequest.asset?.name}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer"
+                  title="In trực tiếp văn bản này ra máy in hoặc lưu PDF"
+                >
+                  <Printer className="w-4 h-4" /> In Phiếu Này (A4)
+                </button>
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="p-1.5 hover:bg-white/20 rounded-xl transition text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Template Selector Tabs */}
+            <div className="bg-slate-100 px-6 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setDetailPrintTab('PROPOSAL')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    detailPrintTab === 'PROPOSAL' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Mẫu 1: Phiếu Báo Hỏng & Đề Xuất Sửa Chữa
+                </button>
+                <button
+                  onClick={() => setDetailPrintTab('ACCEPTANCE')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    detailPrintTab === 'ACCEPTANCE' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Mẫu 2: Biên Bản Nghiệm Thu & Bàn Giao
+                </button>
+              </div>
+              <span className="text-[11px] text-slate-500 italic">Khổ giấy in tiêu chuẩn A4</span>
+            </div>
+
+            {/* Printable Content Body */}
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-slate-50">
+              {/* TAB 1: PHIẾU BÁO HỎNG & ĐỀ XUẤT SỬA CHỮA */}
+              {detailPrintTab === 'PROPOSAL' && (
+                <div className="bg-white p-8 sm:p-10 rounded-2xl shadow-md border border-slate-200 font-serif text-slate-900 print:shadow-none print:border-none print:p-0 max-w-3xl mx-auto">
+                  <div className="flex justify-between items-start text-xs sm:text-sm font-sans mb-4 border-b border-slate-200 pb-4">
+                    <div>
+                      <div className="font-bold uppercase">TRUNG TÂM KIỂM SOÁT BỆNH TẬT TP ĐÀ NẴNG</div>
+                      <div className="font-bold text-slate-700">
+                        {detailRequest.department?.name?.toUpperCase() || 'KHOA / PHÒNG'}
+                      </div>
+                      <div className="text-[11px] text-slate-500">Mã phiếu: SC-2026-{detailRequest.id.toString().padStart(4, '0')}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                      <div className="italic text-xs">Độc lập - Tự do - Hạnh phúc</div>
+                      <div className="text-[11px] text-slate-500 mt-1">
+                        Đà Nẵng, ngày {detailRequest.requestDate ? new Date(detailRequest.requestDate).getDate() : new Date().getDate()} tháng {detailRequest.requestDate ? new Date(detailRequest.requestDate).getMonth() + 1 : new Date().getMonth() + 1} năm 2026
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center my-5">
+                    <h2 className="text-xl font-bold uppercase tracking-wide">
+                      GIẤY ĐỀ NGHỊ SỬA CHỮA / BẢO DƯỠNG THIẾT BỊ
+                    </h2>
+                    <p className="text-xs italic text-slate-600 font-sans mt-0.5">
+                      Kính gửi: Ban Giám Đốc Trung tâm Kiểm soát bệnh tật TP Đà Nẵng
+                    </p>
+                    <p className="text-xs italic text-slate-600 font-sans">
+                      Đồng kính gửi: {
+                        detailRequest.managingUnit === 'DUOC' ? 'Khoa Dược - Vật tư y tế' :
+                        detailRequest.managingUnit === 'CNTT' ? 'Tổ Công nghệ thông tin' :
+                        'Phòng Tổ chức - Hành chính'
+                      }
+                    </p>
+                  </div>
+
+                  <div className="space-y-4 font-sans text-xs">
+                    {/* Phần I: Thông tin người đề nghị */}
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                      <div className="font-bold text-slate-800 uppercase text-[11px] mb-2 text-blue-800">
+                        I. ĐƠN VỊ & NGƯỜI ĐỀ NGHỊ BÁO HỎNG
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>• Khoa / Phòng sử dụng: <b>{detailRequest.department?.name}</b></div>
+                        <div>• Người đề nghị: <b>{detailRequest.requestedBy}</b></div>
+                        <div>• Số điện thoại liên hệ: <b>{detailRequest.contactPhone || 'Chưa cung cấp'}</b></div>
+                        <div>• Vị trí thiết bị: <b>{detailRequest.locationDetail || detailRequest.asset?.locationDetail || 'Tại phòng làm việc'}</b></div>
+                      </div>
+                    </div>
+
+                    {/* Phần II: Thông tin thiết bị */}
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                      <div className="font-bold text-slate-800 uppercase text-[11px] mb-2 text-blue-800">
+                        II. THÔNG TIN TRANG THIẾT BỊ BÁO HỎNG
+                      </div>
+                      <table className="w-full text-left border-collapse bg-white border border-slate-300">
+                        <tbody className="divide-y divide-slate-200">
+                          <tr>
+                            <td className="p-2 font-bold w-1/3 bg-slate-100">Tên thiết bị:</td>
+                            <td className="p-2 font-semibold text-slate-900">{detailRequest.asset?.name}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 font-bold bg-slate-100">Mã tài sản:</td>
+                            <td className="p-2 font-mono font-bold text-blue-700">{detailRequest.asset?.assetCode}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 font-bold bg-slate-100">Khối quản lý:</td>
+                            <td className="p-2">
+                              {detailRequest.managingUnit === 'DUOC' ? 'Khoa Dược (Trang thiết bị Y tế)' :
+                               detailRequest.managingUnit === 'CNTT' ? 'Tổ CNTT (Thiết bị Công nghệ thông tin)' :
+                               'Phòng TCHC (Thiết bị điện & Cơ sở vật chất)'}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 font-bold bg-slate-100">Cấu hình / Thông số:</td>
+                            <td className="p-2">{detailRequest.asset?.specifications || 'Theo cấu hình nguyên bản'}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Phần III: Hiện trạng sự cố */}
+                    <div className="bg-amber-50/60 p-3.5 rounded-xl border border-amber-200">
+                      <div className="font-bold text-amber-900 uppercase text-[11px] mb-2">
+                        III. HIỆN TRẠNG SỰ CỐ & MÔ TẢ HỎNG HÓC
+                      </div>
+                      <div className="p-2.5 bg-white rounded-lg border border-amber-200 text-slate-800 font-medium">
+                        {detailRequest.issueDescription}
+                      </div>
+                      <div className="mt-2 text-slate-600">
+                        • Mức độ ưu tiên xử lý: <b className="text-amber-800">{PRIORITY_LABELS[detailRequest.priority] || detailRequest.priority}</b>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Chữ ký 4 bên */}
+                  <div className="mt-8 grid grid-cols-3 text-center text-xs font-sans pt-6 border-t border-slate-300">
+                    <div>
+                      <div className="font-bold">NGƯỜI ĐỀ NGHỊ</div>
+                      <div className="italic text-slate-500 text-[11px] mt-0.5">(Ký và ghi rõ họ tên)</div>
+                      <div className="h-16"></div>
+                      <div className="font-semibold">{detailRequest.requestedBy}</div>
+                    </div>
+
+                    <div>
+                      <div className="font-bold">TRƯỞNG KHOA / PHÒNG</div>
+                      <div className="italic text-slate-500 text-[11px] mt-0.5">(Ký và ghi rõ họ tên)</div>
+                      <div className="h-16"></div>
+                      <div className="font-semibold">Lãnh đạo đơn vị sử dụng</div>
+                    </div>
+
+                    <div>
+                      <div className="font-bold">ĐƠN VỊ CHUYÊN TRÁCH TIẾP NHẬN</div>
+                      <div className="italic text-slate-500 text-[11px] mt-0.5">(Ký và ghi rõ họ tên)</div>
+                      <div className="h-16"></div>
+                      <div className="font-semibold">{detailRequest.technicianName || 'Cán bộ kỹ thuật'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: BIÊN BẢN NGHIỆM THU & BÀN GIAO SỬA CHỮA */}
+              {detailPrintTab === 'ACCEPTANCE' && (
+                <div className="bg-white p-8 sm:p-10 rounded-2xl shadow-md border border-slate-200 font-serif text-slate-900 print:shadow-none print:border-none print:p-0 max-w-3xl mx-auto">
+                  <div className="flex justify-between items-start text-xs sm:text-sm font-sans mb-4 border-b border-slate-200 pb-4">
+                    <div>
+                      <div className="font-bold uppercase">TRUNG TÂM KIỂM SOÁT BỆNH TẬT TP ĐÀ NẴNG</div>
+                      <div className="font-bold text-slate-700">HỘI ĐỒNG NGHIỆM THU KỸ THUẬT</div>
+                      <div className="text-[11px] text-slate-500">Số BB: NT-2026-{detailRequest.id.toString().padStart(4, '0')}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                      <div className="italic text-xs">Độc lập - Tự do - Hạnh phúc</div>
+                      <div className="text-[11px] text-slate-500 mt-1">
+                        Đà Nẵng, ngày {detailRequest.completedDate ? new Date(detailRequest.completedDate).getDate() : new Date().getDate()} tháng {detailRequest.completedDate ? new Date(detailRequest.completedDate).getMonth() + 1 : new Date().getMonth() + 1} năm 2026
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center my-5">
+                    <h2 className="text-xl font-bold uppercase tracking-wide">
+                      BIÊN BẢN NGHIỆM THU & BÀN GIAO THIẾT BỊ SỬA CHỮA
+                    </h2>
+                    <p className="text-xs italic text-slate-600 font-sans mt-0.5">
+                      Căn cứ kết quả kiểm tra kỹ thuật và khắc phục sự cố trang thiết bị
+                    </p>
+                  </div>
+
+                  <div className="space-y-4 font-sans text-xs">
+                    {/* Thông tin thiết bị */}
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                      <div className="font-bold text-slate-800 uppercase text-[11px] mb-2 text-emerald-800">
+                        1. ĐỐI TƯỢNG NGHIỆM THU BÀN GIAO
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>• Tên trang thiết bị: <b>{detailRequest.asset?.name}</b></div>
+                        <div>• Mã tài sản: <b className="font-mono text-blue-700">{detailRequest.asset?.assetCode}</b></div>
+                        <div>• Đơn vị sử dụng: <b>{detailRequest.department?.name}</b></div>
+                        <div>• Vị trí bàn giao: <b>{detailRequest.locationDetail || detailRequest.asset?.locationDetail || 'Tại phòng'}</b></div>
+                      </div>
+                    </div>
+
+                    {/* Nội dung đã thực hiện */}
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                      <div className="font-bold text-slate-800 uppercase text-[11px] mb-2 text-emerald-800">
+                        2. NỘI DUNG SỬA CHỮA & THAY THẾ LINH KIỆN
+                      </div>
+                      <table className="w-full text-left border-collapse bg-white border border-slate-300">
+                        <tbody className="divide-y divide-slate-200">
+                          <tr>
+                            <td className="p-2 font-bold w-1/3 bg-slate-100">Đơn vị / Cán bộ sửa chữa:</td>
+                            <td className="p-2">{detailRequest.repairVendor || detailRequest.technicianName || 'Tổ Kỹ thuật CDC'}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 font-bold bg-slate-100">Linh kiện thay thế:</td>
+                            <td className="p-2 font-medium">{detailRequest.replacementParts || 'Không thay linh kiện (khắc phục cân chỉnh)'}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 font-bold bg-slate-100">Ghi chú kỹ thuật:</td>
+                            <td className="p-2">{detailRequest.repairNote || 'Đã kiểm tra hoạt động ổn định'}</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 font-bold bg-slate-100">Kinh phí thực hiện:</td>
+                            <td className="p-2 font-mono font-bold text-emerald-700">
+                              {detailRequest.repairCost ? Number(detailRequest.repairCost).toLocaleString('vi-VN') + ' đ' : '0 đ'}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 font-bold bg-slate-100">Nguồn kinh phí:</td>
+                            <td className="p-2">{detailRequest.fundingSource || 'Nguồn kinh phí sự nghiệp'}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Đánh giá kết luận */}
+                    <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200">
+                      <div className="font-bold text-emerald-900 uppercase text-[11px] mb-1">
+                        3. KẾT LUẬN & BÀN GIAO SỬ DỤNG
+                      </div>
+                      <p className="text-slate-800 font-medium">
+                        Thiết bị đã được sửa chữa, căn chỉnh hoàn tất. Tình trạng kỹ thuật sau sửa chữa: <b>{detailRequest.deviceStatusAfter || 'Hoạt động tốt, an toàn'}</b>. Các bên thống nhất nghiệm thu và bàn giao đưa vào vận hành bình thường.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Chữ ký 4 bên */}
+                  <div className="mt-8 grid grid-cols-4 text-center text-xs font-sans pt-6 border-t border-slate-300">
+                    <div>
+                      <div className="font-bold">ĐẠI DIỆN ĐƠN VỊ SỬ DỤNG</div>
+                      <div className="italic text-slate-500 text-[10px] mt-0.5">(Ký và ghi rõ họ tên)</div>
+                      <div className="h-14"></div>
+                      <div className="font-semibold">{detailRequest.requestedBy}</div>
+                    </div>
+
+                    <div>
+                      <div className="font-bold">CÁN BỘ KỸ THUẬT</div>
+                      <div className="italic text-slate-500 text-[10px] mt-0.5">(Ký và ghi rõ họ tên)</div>
+                      <div className="h-14"></div>
+                      <div className="font-semibold">{detailRequest.technicianName || 'Cán bộ sửa chữa'}</div>
+                    </div>
+
+                    <div>
+                      <div className="font-bold">TRƯỞNG BỘ PHẬN CHUYÊN TRÁCH</div>
+                      <div className="italic text-slate-500 text-[10px] mt-0.5">(Ký và ghi rõ họ tên)</div>
+                      <div className="h-14"></div>
+                      <div className="font-semibold">Khoa Dược / CNTT / TCHC</div>
+                    </div>
+
+                    <div>
+                      <div className="font-bold">GIÁM ĐỐC DUYỆT</div>
+                      <div className="italic text-slate-500 text-[10px] mt-0.5">(Ký tên & đóng dấu)</div>
+                      <div className="h-14"></div>
+                      <div className="font-semibold">TS. BS. Nguyễn Đại Vĩnh</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

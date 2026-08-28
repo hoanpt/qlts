@@ -3,7 +3,7 @@ import {
   Plus, AlertTriangle, CheckCircle2, Clock, Calendar, 
   Search, Printer, DollarSign, FileText, CheckCircle, XCircle, Users,
   Layers, ShieldCheck, Sparkles, Download, Edit3, Trash2, CalendarCheck,
-  Building2, UserCheck, Wrench, RefreshCw, X, ChevronRight, Check
+  Building2, UserCheck, Wrench, RefreshCw, X, ChevronRight, Check, Eye
 } from 'lucide-react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,7 +21,9 @@ export default function PlannedMaintenance() {
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any>(null);
+  const [detailRecord, setDetailRecord] = useState<PlannedMaintenanceType | null>(null);
 
   // Tabs: 'ALL' | 'UPCOMING' | 'OVERDUE' | 'PRINT'
   const [activeTab, setActiveTab] = useState<'ALL' | 'UPCOMING' | 'OVERDUE' | 'PRINT'>('ALL');
@@ -191,6 +193,12 @@ export default function PlannedMaintenance() {
     } catch (e: any) {
       alert(e.message || 'Lỗi khi cập nhật kế hoạch bảo trì');
     }
+  };
+
+  // Open Detail Modal
+  const handleOpenDetail = (rec: PlannedMaintenanceType) => {
+    setDetailRecord(rec);
+    setShowDetailModal(true);
   };
 
   // Delete Record
@@ -534,6 +542,20 @@ export default function PlannedMaintenance() {
                         </td>
                         <td className="p-3.5 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleOpenDetail(r)}
+                              className="p-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white rounded-lg transition cursor-pointer"
+                              title="Xem chi tiết bảo trì thiết bị"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleOpenDetail(r)}
+                              className="p-1.5 bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white rounded-lg transition cursor-pointer"
+                              title="In biên bản bảo dưỡng định kỳ thiết bị (A4)"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               onClick={() => handleOpenEdit(r)}
                               className="p-1.5 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white rounded-lg transition cursor-pointer"
@@ -1101,6 +1123,197 @@ export default function PlannedMaintenance() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 8. MODAL XEM CHI TIẾT & IN BIÊN BẢN BẢO DƯỠNG ĐỊNH KỲ (KHỔ A4)             */}
+      {/* ========================================================================= */}
+      {showDetailModal && detailRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[94vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-emerald-700 to-teal-800 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/15 rounded-xl backdrop-blur-sm">
+                  <CalendarCheck className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-base">Hồ Sơ Bảo Trì Định Kỳ: {detailRecord.asset?.assetCode}</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      detailRecord.result === 'PASS' ? 'bg-emerald-500 text-white' :
+                      detailRecord.result === 'NEEDS_REPAIR' ? 'bg-orange-500 text-white' :
+                      detailRecord.result === 'PENDING' ? 'bg-blue-500 text-white' : 'bg-red-500 text-white'
+                    }`}>
+                      {detailRecord.result === 'PASS' ? 'Đạt tiêu chuẩn' :
+                       detailRecord.result === 'NEEDS_REPAIR' ? 'Cần sửa chữa' :
+                       detailRecord.result === 'PENDING' ? 'Đang thực hiện' : 'Không đạt'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-100 truncate max-w-md">{detailRecord.asset?.name}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white text-emerald-800 rounded-xl text-xs font-bold shadow hover:bg-emerald-50 transition cursor-pointer"
+                  title="In biên bản bảo dưỡng ra máy in hoặc lưu PDF"
+                >
+                  <Printer className="w-4 h-4 text-emerald-700" /> In Biên Bản Này (A4)
+                </button>
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="p-1.5 hover:bg-white/20 rounded-xl transition text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Content Body */}
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-slate-50">
+              <div className="bg-white p-8 sm:p-10 rounded-2xl shadow-md border border-slate-200 font-serif text-slate-900 print:shadow-none print:border-none print:p-0 max-w-3xl mx-auto">
+                <div className="flex justify-between items-start text-xs sm:text-sm font-sans mb-4 border-b border-slate-200 pb-4">
+                  <div>
+                    <div className="font-bold uppercase">TRUNG TÂM KIỂM SOÁT BỆNH TẬT TP ĐÀ NẴNG</div>
+                    <div className="font-bold text-slate-700">KHOA DƯỢC - VẬT TƯ Y TẾ / TỔ KỸ THUẬT</div>
+                    <div className="text-[11px] text-slate-500">Mã phiếu: BT-2026-{detailRecord.id.toString().padStart(4, '0')}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                    <div className="italic text-xs">Độc lập - Tự do - Hạnh phúc</div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      Đà Nẵng, ngày {detailRecord.maintenanceDate ? new Date(detailRecord.maintenanceDate).getDate() : new Date().getDate()} tháng {detailRecord.maintenanceDate ? new Date(detailRecord.maintenanceDate).getMonth() + 1 : new Date().getMonth() + 1} năm 2026
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-center my-5">
+                  <h2 className="text-xl font-bold uppercase tracking-wide">
+                    BIÊN BẢN BẢO DƯỠNG & KIỂM TRA ĐỊNH KỲ THIẾT BỊ
+                  </h2>
+                  <p className="text-xs italic text-slate-600 font-sans mt-0.5">
+                    ({detailRecord.decisionNumber || 'Kế hoạch số 15/KH-TTKSBT về Bảo trì & Đảm bảo an toàn kỹ thuật trang thiết bị'})
+                  </p>
+                </div>
+
+                <div className="space-y-4 font-sans text-xs">
+                  {/* Phần I: Thông tin thiết bị */}
+                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <div className="font-bold text-slate-800 uppercase text-[11px] mb-2 text-emerald-800">
+                      I. THÔNG TIN TRANG THIẾT BỊ BẢO DƯỠNG
+                    </div>
+                    <table className="w-full text-left border-collapse bg-white border border-slate-300">
+                      <tbody className="divide-y divide-slate-200">
+                        <tr>
+                          <td className="p-2 font-bold w-1/3 bg-slate-100">Tên trang thiết bị:</td>
+                          <td className="p-2 font-semibold text-slate-900">{detailRecord.asset?.name}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-bold bg-slate-100">Mã tài sản:</td>
+                          <td className="p-2 font-mono font-bold text-emerald-700">{detailRecord.asset?.assetCode}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-bold bg-slate-100">Đơn vị quản lý sử dụng:</td>
+                          <td className="p-2">
+                            <b>{detailRecord.asset?.department?.name}</b>
+                            {detailRecord.asset?.locationDetail && ` (Phòng: ${detailRecord.asset.locationDetail})`}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-bold bg-slate-100">Cán bộ phụ trách máy:</td>
+                          <td className="p-2">{detailRecord.asset?.assignedTo || 'Cán bộ khoa/phòng'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Phần II: Chi tiết bảo dưỡng */}
+                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <div className="font-bold text-slate-800 uppercase text-[11px] mb-2 text-emerald-800">
+                      II. NỘI DUNG & KẾT QUẢ BẢO DƯỠNG ĐỊNH KỲ
+                    </div>
+                    <table className="w-full text-left border-collapse bg-white border border-slate-300">
+                      <tbody className="divide-y divide-slate-200">
+                        <tr>
+                          <td className="p-2 font-bold w-1/3 bg-slate-100">Ngày thực hiện:</td>
+                          <td className="p-2 font-semibold">{new Date(detailRecord.maintenanceDate).toLocaleDateString('vi-VN')}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-bold bg-slate-100">Chu kỳ & Hạn tiếp theo:</td>
+                          <td className="p-2">
+                            <b>{detailRecord.cycleMonths || 6} tháng/lần</b> ➔ Hạn kế tiếp: <b className="text-emerald-700">{detailRecord.nextMaintenanceDate ? new Date(detailRecord.nextMaintenanceDate).toLocaleDateString('vi-VN') : '-'}</b>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-bold bg-slate-100">Đơn vị / Cán bộ bảo trì:</td>
+                          <td className="p-2">{detailRecord.vendor || detailRecord.performedBy || 'Tổ Kỹ thuật CDC'}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-bold bg-slate-100">Nội dung công việc:</td>
+                          <td className="p-2 font-medium">{detailRecord.planContent || 'Vệ sinh, kiểm tra an toàn điện, hiệu chỉnh thông số kỹ thuật'}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-bold bg-slate-100">Tình trạng sau bảo dưỡng:</td>
+                          <td className="p-2 font-bold text-emerald-700">{detailRecord.deviceStatusAfter || 'Hoạt động tốt, ổn định'}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-bold bg-slate-100">Chi phí & Nguồn kinh phí:</td>
+                          <td className="p-2">
+                            <span className="font-mono font-bold text-slate-900">{detailRecord.cost ? Number(detailRecord.cost).toLocaleString('vi-VN') + ' đ' : '0 đ'}</span>
+                            <span className="text-slate-500 ml-2">({detailRecord.fundingSource || 'Nguồn thu sự nghiệp'})</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Phần III: Kết luận */}
+                  <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200">
+                    <div className="font-bold text-emerald-900 uppercase text-[11px] mb-1">
+                      III. ĐÁNH GIÁ & KẾT LUẬN
+                    </div>
+                    <p className="text-slate-800 font-medium">
+                      Thiết bị đã được kiểm tra, bảo dưỡng kỹ thuật theo đúng quy trình. Kết quả: <b>{detailRecord.result === 'PASS' ? 'ĐẠT TIÊU CHUẨN VẬN HÀNH' : detailRecord.result === 'NEEDS_REPAIR' ? 'CẦN SỬA CHỮA THÊM' : 'CHƯA ĐẠT'}</b>. Bàn giao đơn vị tiếp tục sử dụng an toàn.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Chữ ký 4 bên */}
+                <div className="mt-8 grid grid-cols-4 text-center text-xs font-sans pt-6 border-t border-slate-300">
+                  <div>
+                    <div className="font-bold">CÁN BỘ BẢO DƯỠNG</div>
+                    <div className="italic text-slate-500 text-[10px] mt-0.5">(Ký và ghi rõ họ tên)</div>
+                    <div className="h-14"></div>
+                    <div className="font-semibold">{detailRecord.performedBy || 'Kỹ sư bảo trì'}</div>
+                  </div>
+
+                  <div>
+                    <div className="font-bold">NGƯỜI PHỤ TRÁCH MÁY</div>
+                    <div className="italic text-slate-500 text-[10px] mt-0.5">(Ký và ghi rõ họ tên)</div>
+                    <div className="h-14"></div>
+                    <div className="font-semibold">{detailRecord.asset?.assignedTo || 'Cán bộ quản lý'}</div>
+                  </div>
+
+                  <div>
+                    <div className="font-bold">TRƯỞNG BỘ PHẬN</div>
+                    <div className="italic text-slate-500 text-[10px] mt-0.5">(Ký và ghi rõ họ tên)</div>
+                    <div className="h-14"></div>
+                    <div className="font-semibold">Khoa Dược / CNTT / TCHC</div>
+                  </div>
+
+                  <div>
+                    <div className="font-bold">GIÁM ĐỐC TRUNG TÂM</div>
+                    <div className="italic text-slate-500 text-[10px] mt-0.5">(Ký tên & đóng dấu)</div>
+                    <div className="h-14"></div>
+                    <div className="font-semibold">TS. BS. Nguyễn Đại Vĩnh</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
