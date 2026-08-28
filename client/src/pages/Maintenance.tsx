@@ -170,20 +170,38 @@ export default function Maintenance() {
     }
   }, [activeTab, reportPeriodType, reportYear, reportMonth, reportQuarter]);
 
+  const [createAssetSearch, setCreateAssetSearch] = useState('');
+  const [editAssetSearch, setEditAssetSearch] = useState('');
+
   // Filter available assets based on chosen Department AND Managing Unit for Create Modal
   const departmentAssets = useMemo(() => {
     return assets
       .filter(a => {
-        const deptMatch = a.departmentId?.toString() === formData.departmentId;
+        const targetDeptId = user?.role === 'DEPARTMENT' && user.departmentId ? user.departmentId.toString() : formData.departmentId;
+        const deptMatch = !targetDeptId || a.departmentId?.toString() === targetDeptId;
         const chosenUnit = formData.managingUnit;
-        const unitMatch = (a as any).managingUnit === chosenUnit || 
+        const unitMatch = !chosenUnit || chosenUnit === 'ALL' ||
+          (a as any).managingUnit === chosenUnit || 
           (chosenUnit === 'CNTT' && a.categoryId === 2) ||
           (chosenUnit === 'DUOC' && a.categoryId === 1) ||
           (chosenUnit === 'TCHC' && (a.categoryId === 3 || a.categoryId === 4));
-        return deptMatch && unitMatch;
+        
+        if (!deptMatch || !unitMatch) return false;
+
+        if (createAssetSearch.trim()) {
+          const q = createAssetSearch.toLowerCase();
+          const matchCode = a.assetCode?.toLowerCase().includes(q);
+          const matchName = a.name?.toLowerCase().includes(q);
+          const matchUser = a.assignedTo?.toLowerCase().includes(q);
+          const matchLoc = a.locationDetail?.toLowerCase().includes(q) || (a as any).floor?.toLowerCase().includes(q);
+          const matchSpec = a.specifications?.toLowerCase().includes(q);
+          if (!matchCode && !matchName && !matchUser && !matchLoc && !matchSpec) return false;
+        }
+
+        return true;
       })
       .sort((a, b) => (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' }));
-  }, [assets, formData.departmentId, formData.managingUnit]);
+  }, [assets, formData.departmentId, formData.managingUnit, user, createAssetSearch]);
 
   // Filter available assets for Edit Modal - ALWAYS include editingRequest's asset so it maps perfectly
   const editDepartmentAssets = useMemo(() => {
@@ -195,7 +213,20 @@ export default function Maintenance() {
         (chosenUnit === 'CNTT' && a.categoryId === 2) ||
         (chosenUnit === 'DUOC' && a.categoryId === 1) ||
         (chosenUnit === 'TCHC' && (a.categoryId === 3 || a.categoryId === 4));
-      return deptMatch && unitMatch;
+      
+      if (!deptMatch || !unitMatch) return false;
+
+      if (editAssetSearch.trim()) {
+        const q = editAssetSearch.toLowerCase();
+        const matchCode = a.assetCode?.toLowerCase().includes(q);
+        const matchName = a.name?.toLowerCase().includes(q);
+        const matchUser = a.assignedTo?.toLowerCase().includes(q);
+        const matchLoc = a.locationDetail?.toLowerCase().includes(q) || (a as any).floor?.toLowerCase().includes(q);
+        const matchSpec = a.specifications?.toLowerCase().includes(q);
+        if (!matchCode && !matchName && !matchUser && !matchLoc && !matchSpec) return false;
+      }
+
+      return true;
     });
 
     // Ensure the current editing request's asset is ALWAYS included
@@ -209,7 +240,10 @@ export default function Maintenance() {
     }
 
     return list.sort((a, b) => (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' }));
-  }, [assets, editData.departmentId, editData.managingUnit, editData.assetId, editingRequest]);
+  }, [assets, editData.departmentId, editData.managingUnit, editData.assetId, editingRequest, editAssetSearch]);
+
+  const selectedCreateAsset = assets.find(a => a.id.toString() === formData.assetId);
+  const selectedEditAsset = assets.find(a => a.id.toString() === editData.assetId) || editingRequest?.asset;
 
   // Handle Create Request
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -536,8 +570,18 @@ export default function Maintenance() {
                 ) : (
                   filteredRequests.map(r => (
                     <tr key={r.id} className="hover:bg-slate-50/80 transition">
-                      <td className="p-3.5 font-mono font-bold text-blue-700">{r.asset?.assetCode}</td>
-                      <td className="p-3.5 font-bold text-slate-900">{r.asset?.name}</td>
+                      <td className="p-3.5 font-mono font-bold text-blue-700">{r.asset?.assetCode || 'N/A'}</td>
+                      <td className="p-3.5">
+                        <div className="font-bold text-slate-900">{r.asset?.name || (r as any).assetName || 'Thiết bị'}</div>
+                        {r.asset?.assignedTo && (
+                          <div className="text-[11px] text-amber-800 font-medium mt-0.5">
+                            👤 Người SD: <span className="font-bold">{r.asset.assignedTo}</span>
+                          </div>
+                        )}
+                        {r.asset?.specifications && (
+                          <div className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">{r.asset.specifications}</div>
+                        )}
+                      </td>
                       <td className="p-3.5 text-slate-700 font-medium">{r.department?.name || 'CDC'}</td>
                       <td className="p-3.5">
                         <div className="font-semibold text-slate-800">{r.requestedBy}</div>
@@ -911,32 +955,98 @@ export default function Maintenance() {
                 </div>
               </div>
 
-              {/* Row 2: Chọn thiết bị đã map */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="font-bold text-slate-700 uppercase">Chọn thiết bị hư hỏng (*)</label>
+              {/* Row 2: Chọn thiết bị dạng Card / List có tick và hiển thị Người sử dụng */}
+              <div className="space-y-1.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <label className="font-bold text-slate-700 uppercase flex items-center gap-1.5">
+                    <span>Chọn thiết bị hư hỏng (*):</span>
+                    {selectedCreateAsset && (
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-extrabold rounded-md text-[11px]">
+                        Đã chọn: [{selectedCreateAsset.assetCode}] {selectedCreateAsset.name}
+                      </span>
+                    )}
+                  </label>
                   <span className="text-[11px] text-blue-600 font-medium">({departmentAssets.length} thiết bị phù hợp)</span>
                 </div>
-                <select
-                  required
-                  value={formData.assetId}
-                  onChange={e => {
-                    const sel = departmentAssets.find(a => a.id.toString() === e.target.value);
-                    setFormData({
-                      ...formData,
-                      assetId: e.target.value,
-                      locationDetail: sel?.locationDetail || ''
-                    });
-                  }}
-                  className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
-                >
-                  <option value="">-- Chọn thiết bị trong danh mục của Khoa --</option>
-                  {departmentAssets.map(a => (
-                    <option key={a.id} value={a.id}>
-                      [{a.assetCode}] {a.name} {a.assignedTo ? `(Người SD: ${a.assignedTo})` : ''}
-                    </option>
-                  ))}
-                </select>
+
+                {/* Quick Search */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Tìm nhanh theo mã TS, tên máy, người sử dụng (ví dụ: BS. A...), phòng máy..."
+                    value={createAssetSearch}
+                    onChange={e => setCreateAssetSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Scrollable list of assets with user and room info */}
+                <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-52 overflow-y-auto bg-slate-50/50 shadow-inner">
+                  {departmentAssets.length === 0 ? (
+                    <div className="p-4 text-center text-slate-400 text-xs">
+                      Không tìm thấy thiết bị nào phù hợp trong danh mục của Khoa.
+                    </div>
+                  ) : (
+                    departmentAssets.map(a => {
+                      const isSelected = formData.assetId === a.id.toString();
+                      return (
+                        <div
+                          key={a.id}
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              assetId: a.id.toString(),
+                              locationDetail: a.locationDetail || formData.locationDetail,
+                              managingUnit: (a as any).managingUnit || (a.categoryId === 2 ? 'CNTT' : a.categoryId === 1 ? 'DUOC' : 'TCHC'),
+                              requestedBy: formData.requestedBy || a.assignedTo || user?.fullName || ''
+                            });
+                          }}
+                          className={`p-2.5 flex items-start gap-2.5 transition cursor-pointer select-none ${
+                            isSelected ? 'bg-blue-50/90 border-l-4 border-blue-600' : 'hover:bg-white bg-transparent'
+                          }`}
+                        >
+                          <div className="pt-0.5 text-blue-600">
+                            {isSelected ? (
+                              <CheckCircle2 className="w-4 h-4 text-blue-600 fill-blue-100" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center justify-between gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-blue-700 bg-blue-100/60 px-1.5 py-0.2 rounded text-[11px]">{a.assetCode}</span>
+                                <span className="font-bold text-slate-900 truncate max-w-[260px]">{a.name}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                (a as any).managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
+                                (a as any).managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
+                                'bg-amber-100 text-amber-800'
+                              }`}>
+                                {(a as any).managingUnit === 'DUOC' ? 'Khoa Dược' : (a as any).managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 mt-1">
+                              <span className="text-amber-800 font-medium">
+                                👤 Người SD: <strong>{a.assignedTo || 'Chưa gán'}</strong>
+                              </span>
+                              <span>
+                                📍 Vị trí: <strong>{a.locationDetail || (a as any).floor || 'Tại khoa'}</strong>
+                              </span>
+                              {a.yearInUse && <span>Năm SD: {a.yearInUse}</span>}
+                            </div>
+                            {a.specifications && (
+                              <div className="text-[10px] text-slate-400 truncate mt-0.5">{a.specifications}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
 
               {/* Row 3: Người báo hỏng + SĐT */}
@@ -1384,31 +1494,98 @@ export default function Maintenance() {
                 </div>
               </div>
 
-              {/* Row 2: Thiết bị */}
-              <div>
-                <label className="block font-bold text-slate-700 uppercase mb-1">Thiết bị hỏng / cần sửa (*)</label>
-                <select
-                  required
-                  value={editData.assetId}
-                  onChange={e => {
-                    const sel = assets.find(a => a.id.toString() === e.target.value) || editingRequest?.asset;
-                    setEditData({
-                      ...editData,
-                      assetId: e.target.value,
-                      locationDetail: sel?.locationDetail || editData.locationDetail,
-                      departmentId: sel?.departmentId ? sel.departmentId.toString() : editData.departmentId,
-                      managingUnit: (sel as any)?.managingUnit || editData.managingUnit
-                    });
-                  }}
-                  className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-800 bg-white"
-                >
-                  <option value="">-- Chọn thiết bị trong danh mục tài sản --</option>
-                  {editDepartmentAssets.map(a => (
-                    <option key={a.id} value={a.id}>
-                      [{a.assetCode}] {a.name} {a.department?.name ? `(${a.department.name})` : ''} {a.locationDetail ? `- ${a.locationDetail}` : ''}
-                    </option>
-                  ))}
-                </select>
+              {/* Row 2: Chọn thiết bị dạng Card / List có tick và hiển thị Người sử dụng */}
+              <div className="space-y-1.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <label className="font-bold text-slate-700 uppercase flex items-center gap-1.5">
+                    <span>Thiết bị hỏng / cần sửa (*):</span>
+                    {selectedEditAsset && (
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-extrabold rounded-md text-[11px]">
+                        Đã chọn: [{selectedEditAsset.assetCode}] {selectedEditAsset.name}
+                      </span>
+                    )}
+                  </label>
+                  <span className="text-[11px] text-blue-600 font-medium">({editDepartmentAssets.length} thiết bị phù hợp)</span>
+                </div>
+
+                {/* Quick Search */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Tìm nhanh theo mã TS, tên máy, người sử dụng, phòng máy..."
+                    value={editAssetSearch}
+                    onChange={e => setEditAssetSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Scrollable list of assets with user and room info */}
+                <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-52 overflow-y-auto bg-slate-50/50 shadow-inner">
+                  {editDepartmentAssets.length === 0 ? (
+                    <div className="p-4 text-center text-slate-400 text-xs">
+                      Không tìm thấy thiết bị nào phù hợp.
+                    </div>
+                  ) : (
+                    editDepartmentAssets.map(a => {
+                      const isSelected = editData.assetId === a.id.toString();
+                      return (
+                        <div
+                          key={a.id}
+                          onClick={() => {
+                            setEditData({
+                              ...editData,
+                              assetId: a.id.toString(),
+                              locationDetail: a.locationDetail || editData.locationDetail,
+                              departmentId: a.departmentId ? a.departmentId.toString() : editData.departmentId,
+                              managingUnit: (a as any).managingUnit || editData.managingUnit
+                            });
+                          }}
+                          className={`p-2.5 flex items-start gap-2.5 transition cursor-pointer select-none ${
+                            isSelected ? 'bg-blue-50/90 border-l-4 border-blue-600' : 'hover:bg-white bg-transparent'
+                          }`}
+                        >
+                          <div className="pt-0.5 text-blue-600">
+                            {isSelected ? (
+                              <CheckCircle2 className="w-4 h-4 text-blue-600 fill-blue-100" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center justify-between gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-blue-700 bg-blue-100/60 px-1.5 py-0.2 rounded text-[11px]">{a.assetCode}</span>
+                                <span className="font-bold text-slate-900 truncate max-w-[260px]">{a.name}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                (a as any).managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
+                                (a as any).managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
+                                'bg-amber-100 text-amber-800'
+                              }`}>
+                                {(a as any).managingUnit === 'DUOC' ? 'Khoa Dược' : (a as any).managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 mt-1">
+                              <span className="text-amber-800 font-medium">
+                                👤 Người SD: <strong>{a.assignedTo || 'Chưa gán'}</strong>
+                              </span>
+                              <span>
+                                📍 Vị trí: <strong>{a.locationDetail || (a as any).floor || 'Tại khoa'}</strong>
+                              </span>
+                              {a.yearInUse && <span>Năm SD: {a.yearInUse}</span>}
+                            </div>
+                            {a.specifications && (
+                              <div className="text-[10px] text-slate-400 truncate mt-0.5">{a.specifications}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
 
               {/* Row 3: Người báo & SĐT */}
