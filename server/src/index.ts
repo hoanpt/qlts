@@ -131,10 +131,10 @@ const prisma = new PrismaClient();
 
 async function autoMigrateAndSeed() {
   try {
-    // 0. Auto-seed if database is empty (e.g. freshly created PostgreSQL instance)
+    // 0. Auto-seed if database is empty or outdated (sync all 11,254 assets for all 16 departments)
     const assetCount = await prisma.asset.count().catch(() => 0);
-    if (assetCount === 0) {
-      console.log('[Database] Database is empty. Auto-seeding all CDC Da Nang assets and departments...');
+    if (assetCount < 8000) {
+      console.log(`[Database] Syncing comprehensive master dataset (${assetCount} -> 11,254 assets across all 16 departments)...`);
       const seedDataCandidates = [
         path.join(__dirname, '../prisma/initial-seed-data.json'),
         path.join(__dirname, '../../prisma/initial-seed-data.json'),
