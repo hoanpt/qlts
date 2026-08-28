@@ -237,17 +237,24 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/planned-maintenance - Tạo hồ sơ bảo trì theo kế hoạch
+// POST /api/planned-maintenance - Tạo hồ sơ bảo trì theo kế hoạch (hỗ trợ 1 thiết bị hoặc nhiều thiết bị hàng loạt)
 router.post('/', requireAuth, async (req: any, res) => {
   try {
     const {
-      assetId, maintenanceDate, nextMaintenanceDate, cycleMonths, performedBy, vendor,
+      assetId, assetIds, maintenanceDate, nextMaintenanceDate, cycleMonths, performedBy, vendor,
       planContent, result, cost, decisionNumber, acceptanceMembers, fundingSource,
       deviceStatusAfter, note
     } = req.body;
 
-    if (!assetId) {
-      return res.status(400).json({ error: 'Vui lòng chọn thiết bị bảo trì' });
+    const ids: number[] = [];
+    if (Array.isArray(assetIds) && assetIds.length > 0) {
+      ids.push(...assetIds.map((id: any) => parseInt(id)));
+    } else if (assetId) {
+      ids.push(parseInt(assetId));
+    }
+
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'Vui lòng chọn ít nhất 1 thiết bị bảo trì' });
     }
 
     const mDate = maintenanceDate ? new Date(maintenanceDate) : new Date();
@@ -259,27 +266,31 @@ router.post('/', requireAuth, async (req: any, res) => {
       nextDate.setMonth(nextDate.getMonth() + parseInt(cycleMonths));
     }
 
-    const record = await prisma.plannedMaintenance.create({
-      data: {
-        assetId: parseInt(assetId),
-        maintenanceDate: mDate,
-        nextMaintenanceDate: nextDate,
-        cycleMonths: cycleMonths ? parseInt(cycleMonths) : 6,
-        performedBy: performedBy || req.user?.fullName,
-        vendor,
-        planContent: planContent || 'Bảo trì định kỳ theo kế hoạch',
-        result: result || 'PASS',
-        cost: cost !== '' && cost !== null ? parseFloat(cost) : 0,
-        decisionNumber,
-        acceptanceMembers,
-        fundingSource: fundingSource || 'Kinh phí sự nghiệp / Quỹ PTHĐSN',
-        deviceStatusAfter: deviceStatusAfter || 'Hoạt động tốt',
-        note
-      },
-      include: { asset: { include: { department: true, category: true } } }
-    });
+    const createdRecords = [];
+    for (const id of ids) {
+      const record = await prisma.plannedMaintenance.create({
+        data: {
+          assetId: id,
+          maintenanceDate: mDate,
+          nextMaintenanceDate: nextDate,
+          cycleMonths: cycleMonths ? parseInt(cycleMonths) : 6,
+          performedBy: performedBy || req.user?.fullName,
+          vendor,
+          planContent: planContent || 'Bảo trì định kỳ theo kế hoạch',
+          result: result || 'PASS',
+          cost: cost !== '' && cost !== null ? parseFloat(cost) : 0,
+          decisionNumber,
+          acceptanceMembers,
+          fundingSource: fundingSource || 'Kinh phí sự nghiệp / Quỹ PTHĐSN',
+          deviceStatusAfter: deviceStatusAfter || 'Hoạt động tốt',
+          note
+        },
+        include: { asset: { include: { department: true, category: true } } }
+      });
+      createdRecords.push(record);
+    }
 
-    res.status(201).json(record);
+    res.status(201).json(createdRecords.length === 1 ? createdRecords[0] : { count: createdRecords.length, records: createdRecords });
   } catch (error) {
     console.error('Error creating planned maintenance:', error);
     res.status(400).json({ error: 'Lỗi khi tạo hồ sơ bảo trì theo kế hoạch' });

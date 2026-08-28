@@ -38,7 +38,10 @@ export default function PlannedMaintenance() {
     user?.role === 'MANAGER_TCHC' ? 'TCHC' : 'ALL'
   );
 
-  // Asset selector in modal
+  // Cascading Selection State in Create Modal
+  const [selectedDeptForCreate, setSelectedDeptForCreate] = useState<string>('2'); // Default Khoa Xét Nghiệm (2) or user's dept
+  const [selectedUnitForCreate, setSelectedUnitForCreate] = useState<'DUOC' | 'CNTT' | 'TCHC' | 'ALL'>('DUOC');
+  const [selectedAssetIds, setSelectedAssetIds] = useState<number[]>([]);
   const [assetSearch, setAssetSearch] = useState('');
 
   // Create Form State
@@ -48,12 +51,12 @@ export default function PlannedMaintenance() {
     nextMaintenanceDate: '',
     cycleMonths: 6,
     performedBy: user?.fullName || 'Tổ Kỹ thuật / Kỹ sư bảo trì',
-    vendor: 'Trung tâm Bảo trì Thiết bị Y tế / Đại diện Hãng',
+    vendor: 'Trung tâm Bảo trì & Dịch vụ Kỹ thuật Thiết bị',
     planContent: 'Bảo dưỡng định kỳ: Vệ sinh máy, kiểm tra nguồn điện, hiệu chỉnh độ ổn định, bôi trơn linh kiện chuyển động',
     result: 'PASS',
     cost: '500000',
     decisionNumber: 'Kế hoạch số 15/KH-TTKSBT năm 2026',
-    acceptanceMembers: 'Ds. Tính, Ds. Lộc, Cn. Hải, Cn. Sơn',
+    acceptanceMembers: 'Trưởng bộ phận sử dụng, Cán bộ phụ trách',
     fundingSource: 'Nguồn thu sự nghiệp / Quỹ PTHĐSN',
     deviceStatusAfter: 'Hoạt động tốt, ổn định',
     note: ''
@@ -103,6 +106,20 @@ export default function PlannedMaintenance() {
     fetchData();
   }, []);
 
+  // Count TBYT per department for intuitive selection
+  const deptTbytCounts = useMemo(() => {
+    const map: Record<number, { duoc: number; cntt: number; tchc: number; total: number }> = {};
+    assets.forEach(a => {
+      const dId = a.departmentId;
+      if (!map[dId]) map[dId] = { duoc: 0, cntt: 0, tchc: 0, total: 0 };
+      map[dId].total++;
+      if (a.managingUnit === 'DUOC') map[dId].duoc++;
+      else if (a.managingUnit === 'CNTT') map[dId].cntt++;
+      else if (a.managingUnit === 'TCHC') map[dId].tchc++;
+    });
+    return map;
+  }, [assets]);
+
   // Update next maintenance date automatically when maintenanceDate or cycleMonths changes
   const updateNextDate = (dateStr: string, months: number, isEdit: boolean = false) => {
     if (!dateStr) return;
@@ -121,14 +138,21 @@ export default function PlannedMaintenance() {
     const today = new Date().toISOString().split('T')[0];
     const nextD = new Date();
     nextD.setMonth(nextD.getMonth() + 6);
+
+    const initialDept = user?.departmentId ? user.departmentId.toString() : '2'; // Default Khoa Xét Nghiệm (2) or user's dept
+    setSelectedDeptForCreate(initialDept);
+    setSelectedUnitForCreate('DUOC');
+    setSelectedAssetIds([]);
+    setAssetSearch('');
+
     setFormData({
       assetId: '',
       maintenanceDate: today,
       nextMaintenanceDate: nextD.toISOString().split('T')[0],
       cycleMonths: 6,
       performedBy: user?.fullName || 'Tổ Kỹ thuật / Kỹ sư bảo dưỡng',
-      vendor: 'Trung tâm Dịch vụ Kỹ thuật Thiết bị',
-      planContent: 'Bảo dưỡng định kỳ: Vệ sinh, tra dầu mỡ, kiểm tra an toàn điện và cân chỉnh thông số kỹ thuật',
+      vendor: 'Trung tâm Bảo trì & Dịch vụ Kỹ thuật Thiết bị',
+      planContent: 'Bảo dưỡng định kỳ: Vệ sinh máy, kiểm tra nguồn điện, hiệu chỉnh độ ổn định, bôi trơn linh kiện chuyển động',
       result: 'PASS',
       cost: '500000',
       decisionNumber: 'Kế hoạch số 15/KH-TTKSBT năm 2026',
@@ -137,25 +161,73 @@ export default function PlannedMaintenance() {
       deviceStatusAfter: 'Hoạt động tốt, ổn định',
       note: ''
     });
-    setAssetSearch('');
     setShowModal(true);
   };
 
   // Submit Create
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.assetId) {
-      alert('Vui lòng chọn thiết bị thực hiện bảo trì định kỳ!');
+    if (selectedAssetIds.length === 0) {
+      alert('Vui lòng chọn ít nhất 1 thiết bị từ danh mục TBYT của khoa để lập kế hoạch bảo trì!');
       return;
     }
     try {
-      await apiPost('/planned-maintenance', formData);
+      await apiPost('/planned-maintenance', {
+        ...formData,
+        assetIds: selectedAssetIds
+      });
       setShowModal(false);
       fetchData();
-      alert('Đã lập kế hoạch & ghi nhật ký bảo trì định kỳ thành công!');
+      alert(`Đã lập kế hoạch bảo trì định kỳ cho ${selectedAssetIds.length} thiết bị thành công!`);
     } catch (e: any) {
       alert(e.message || 'Lỗi khi tạo hồ sơ bảo trì');
     }
+  };
+
+  // Toggle selection of asset
+  const handleToggleAsset = (id: number) => {
+    setSelectedAssetIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  // Filtered Assets for Modal Selector
+  const filteredAssetsForSelector = useMemo(() => {
+    let list = assets;
+
+    // 1. Filter by Department selected in Modal
+    if (user?.role === 'DEPARTMENT' && user.departmentId) {
+      list = list.filter(a => a.departmentId === user.departmentId);
+    } else if (selectedDeptForCreate && selectedDeptForCreate !== 'ALL') {
+      list = list.filter(a => a.departmentId === parseInt(selectedDeptForCreate));
+    }
+
+    // 2. Filter by Managing Unit (Default: DUOC - Trang thiết bị Y tế)
+    if (selectedUnitForCreate !== 'ALL') {
+      list = list.filter(a => a.managingUnit === selectedUnitForCreate);
+    }
+
+    // 3. Search query
+    if (!assetSearch.trim()) return list;
+    const q = assetSearch.toLowerCase();
+    return list.filter(a => 
+      a.name.toLowerCase().includes(q) ||
+      a.assetCode.toLowerCase().includes(q) ||
+      a.assignedTo?.toLowerCase().includes(q) ||
+      a.locationDetail?.toLowerCase().includes(q) ||
+      a.specifications?.toLowerCase().includes(q)
+    );
+  }, [assets, selectedDeptForCreate, selectedUnitForCreate, assetSearch, user]);
+
+  // Select all in current view
+  const handleSelectAll = () => {
+    const allIds = filteredAssetsForSelector.map(a => a.id);
+    setSelectedAssetIds(allIds);
+  };
+
+  // Deselect all
+  const handleDeselectAll = () => {
+    setSelectedAssetIds([]);
   };
 
   // Open Edit Modal
@@ -250,30 +322,6 @@ export default function PlannedMaintenance() {
       return true;
     });
   }, [records, activeTab, resultFilter, deptFilter, unitFilter, search]);
-
-  // Asset search for modal selector
-  const filteredAssetsForSelector = useMemo(() => {
-    let list = assets;
-    if (user?.role === 'MANAGER_DUOC') {
-      list = list.filter(a => a.managingUnit === 'DUOC');
-    } else if (user?.role === 'MANAGER_CNTT') {
-      list = list.filter(a => a.managingUnit === 'CNTT');
-    } else if (user?.role === 'MANAGER_TCHC') {
-      list = list.filter(a => a.managingUnit === 'TCHC');
-    } else if (user?.role === 'DEPARTMENT' && user.departmentId) {
-      list = list.filter(a => a.departmentId === user.departmentId);
-    }
-
-    if (!assetSearch.trim()) return list.slice(0, 30);
-    const q = assetSearch.toLowerCase();
-    return list.filter(a => 
-      a.name.toLowerCase().includes(q) ||
-      a.assetCode.toLowerCase().includes(q) ||
-      a.assignedTo?.toLowerCase().includes(q) ||
-      a.locationDetail?.toLowerCase().includes(q) ||
-      a.department?.name?.toLowerCase().includes(q)
-    ).slice(0, 40);
-  }, [assets, assetSearch, user]);
 
   return (
     <div className="space-y-6 pb-16">
@@ -706,61 +754,186 @@ export default function PlannedMaintenance() {
 
             {/* Modal Form */}
             <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
-              {/* Asset Selector */}
+              {/* ========================================================================= */}
+              {/* BƯỚC 1: CHỌN KHOA / PHÒNG & KHỐI TÀI SẢN                                  */}
+              {/* ========================================================================= */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-emerald-600" />
+                    <span>Bước 1: Chọn Khoa / Phòng quản lý tài sản</span>
+                    <span className="text-red-500">*</span>
+                  </label>
+                  {user?.role === 'DEPARTMENT' && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
+                      Khoa của bạn
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Khoa / Phòng</label>
+                    <select
+                      value={selectedDeptForCreate}
+                      onChange={e => {
+                        setSelectedDeptForCreate(e.target.value);
+                        setSelectedAssetIds([]);
+                      }}
+                      disabled={user?.role === 'DEPARTMENT'}
+                      className="w-full px-3 py-2 text-xs font-bold border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800"
+                    >
+                      {departments.map(d => {
+                        const counts = deptTbytCounts[d.id] || { duoc: 0, cntt: 0, tchc: 0, total: 0 };
+                        return (
+                          <option key={d.id} value={d.id}>
+                            {d.name} ({d.code}) — {counts.duoc} TBYT / {counts.total} tài sản
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Khối danh mục tài sản</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedUnitForCreate('DUOC');
+                          setSelectedAssetIds([]);
+                        }}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                          selectedUnitForCreate === 'DUOC'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        🩺 Khối TBYT (Dược)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedUnitForCreate('ALL');
+                          setSelectedAssetIds([]);
+                        }}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                          selectedUnitForCreate === 'ALL'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        📦 Tất cả tài sản
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ========================================================================= */}
+              {/* BƯỚC 2: DANH MỤC TÀI SẢN TBYT CỦA KHOA ĐÃ CHỌN                             */}
+              {/* ========================================================================= */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
-                  <span>1. Chọn thiết bị cần bảo trì định kỳ <span className="text-red-500">*</span></span>
-                  <span className="text-[11px] font-normal text-slate-500">Tìm theo mã TS, tên máy, người sử dụng hoặc phòng</span>
-                </label>
-                
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>Bước 2: Danh mục thiết bị khoa {departments.find(d => d.id.toString() === selectedDeptForCreate)?.name || ''}</span>
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      Tìm thấy <b className="text-emerald-700">{filteredAssetsForSelector.length}</b> thiết bị • Đã chọn: <b className="text-blue-700">{selectedAssetIds.length}</b> thiết bị
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSelectAll}
+                      className="px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition cursor-pointer"
+                    >
+                      Chọn tất cả ({filteredAssetsForSelector.length})
+                    </button>
+                    {selectedAssetIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleDeselectAll}
+                        className="px-2.5 py-1 text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition cursor-pointer"
+                      >
+                        Bỏ chọn
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Search */}
                 <div className="relative">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
-                    placeholder="Gõ mã tài sản, tên thiết bị, cán bộ phụ trách..."
+                    placeholder="Tìm theo mã TBYT, tên máy, model, vị trí phòng, người sử dụng..."
                     value={assetSearch}
                     onChange={e => setAssetSearch(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
                   />
                 </div>
 
-                {/* Cards selector */}
-                <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-2xl divide-y divide-slate-100 bg-slate-50/50 p-1 space-y-1">
-                  {filteredAssetsForSelector.map(a => {
-                    const isSelected = formData.assetId === a.id.toString();
-                    return (
-                      <div
-                        key={a.id}
-                        onClick={() => setFormData({ ...formData, assetId: a.id.toString() })}
-                        className={`p-3 rounded-xl cursor-pointer transition flex items-start justify-between gap-3 ${
-                          isSelected ? 'bg-emerald-50 border border-emerald-300 shadow-xs' : 'bg-white hover:bg-slate-100/70 border border-transparent'
-                        }`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-xs text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded">
-                              {a.assetCode}
-                            </span>
-                            <span className="font-bold text-xs text-slate-900">{a.name}</span>
+                {/* Cards Selector Grid */}
+                <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-2xl divide-y divide-slate-100 bg-slate-50/60 p-1.5 space-y-1.5">
+                  {filteredAssetsForSelector.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-xs">
+                      Không tìm thấy thiết bị nào trong khoa đã chọn phù hợp với điều kiện tìm kiếm.
+                    </div>
+                  ) : (
+                    filteredAssetsForSelector.map(a => {
+                      const isSelected = selectedAssetIds.includes(a.id);
+                      return (
+                        <div
+                          key={a.id}
+                          onClick={() => handleToggleAsset(a.id)}
+                          className={`p-3 rounded-xl cursor-pointer transition flex items-start justify-between gap-3 ${
+                            isSelected 
+                              ? 'bg-emerald-50/90 border border-emerald-400 shadow-xs' 
+                              : 'bg-white hover:bg-slate-100/80 border border-slate-200/70'
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-xs text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                                {a.assetCode}
+                              </span>
+                              <span className="font-bold text-xs text-slate-900 truncate">{a.name}</span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                a.managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
+                                a.managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
+                                'bg-amber-100 text-amber-800'
+                              }`}>
+                                {a.managingUnit === 'DUOC' ? 'TBYT' : a.managingUnit === 'CNTT' ? 'CNTT' : 'TCHC'}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 mt-1">
+                              {a.assignedTo && <span>👤 Người dùng: <b className="text-slate-700">{a.assignedTo}</b></span>}
+                              {a.locationDetail && <span>📍 Phòng: <b className="text-slate-700">{a.locationDetail}</b></span>}
+                              {a.specifications && <span className="truncate max-w-xs text-slate-400">⚙️ {a.specifications}</span>}
+                            </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 mt-1">
-                            <span>🏢 {a.department?.name}</span>
-                            {a.assignedTo && <span>👤 Cán bộ: <b className="text-slate-700">{a.assignedTo}</b></span>}
-                            {a.locationDetail && <span>📍 Vị trí: {a.locationDetail}</span>}
+
+                          <div className="shrink-0 pt-0.5">
+                            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition ${
+                              isSelected ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white'
+                            }`}>
+                              {isSelected && <Check className="w-3.5 h-3.5" />}
+                            </div>
                           </div>
                         </div>
-                        <div className="shrink-0 pt-0.5">
-                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition ${
-                            isSelected ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white'
-                          }`}>
-                            {isSelected && <Check className="w-3.5 h-3.5" />}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
+
+              {/* ========================================================================= */}
+              {/* BƯỚC 3: THIẾT LẬP THÔNG TIN KẾ HOẠCH BẢO TRÌ                               */}
+              {/* ========================================================================= */}
 
               {/* Maintenance Date & Cycle */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
