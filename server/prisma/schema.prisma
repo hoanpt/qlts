@@ -78,6 +78,7 @@ model Asset {
   disposals         Disposal[]
   depreciations     Depreciation[]
   calibrations      CalibrationRecord[]
+  plannedMaintenances PlannedMaintenance[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 }
@@ -242,4 +243,25 @@ model CalibrationRecord {
   proposalDate        DateTime?
   approvalDate        DateTime?
   createdAt           DateTime  @default(now())
+}
+
+model PlannedMaintenance {
+  id                  Int       @id @default(autoincrement())
+  assetId             Int
+  asset               Asset     @relation(fields: [assetId], references: [id])
+  maintenanceDate     DateTime  @default(now())
+  nextMaintenanceDate DateTime?
+  cycleMonths         Int?      @default(6) // Chu kỳ: 1, 3, 6, 12 tháng
+  performedBy         String?   // Cán bộ thực hiện / phụ trách
+  vendor              String?   // Đơn vị bảo trì
+  planContent         String?   // Nội dung bảo trì theo kế hoạch
+  result              String    @default("PASS") // PASS (Đạt yêu cầu), FAIL (Không đạt), PENDING (Đang thực hiện), NEEDS_REPAIR (Cần sửa chữa thêm)
+  cost                Float?    @default(0)
+  decisionNumber      String?   // Kế hoạch số / QĐ số
+  acceptanceMembers   String?   // Người nghiệm thu
+  fundingSource       String?   // Nguồn kinh phí
+  deviceStatusAfter   String?   @default("Hoạt động tốt")
+  note                String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }

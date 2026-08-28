@@ -16,6 +16,7 @@ import Inventory from './pages/Inventory';
 import Disposals from './pages/Disposals';
 import Depreciation from './pages/Depreciation';
 import Calibration from './pages/Calibration';
+import PlannedMaintenance from './pages/PlannedMaintenance';
 import QRScanner from './pages/QRScanner';
 import Departments from './pages/Departments';
 import Users from './pages/Users';
@@ -45,6 +46,7 @@ function AppRoutes() {
         <Route path="assets/:id/edit" element={<AssetForm />} />
         <Route path="transfers" element={<Transfers />} />
         <Route path="maintenance" element={<Maintenance />} />
+        <Route path="planned-maintenance" element={<PlannedMaintenance />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="disposals" element={<Disposals />} />
         <Route path="depreciation" element={<Depreciation />} />

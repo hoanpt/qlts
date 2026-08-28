@@ -12,6 +12,7 @@ import inventoryRoutes from './routes/inventory';
 import disposalRoutes from './routes/disposals';
 import depreciationRoutes from './routes/depreciation';
 import calibrationRoutes from './routes/calibrations';
+import plannedMaintenanceRoutes from './routes/plannedMaintenance';
 import dashboardRoutes from './routes/dashboard';
 import exportRoutes from './routes/export';
 import committeeRoutes from './routes/committee';
@@ -72,6 +73,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/planned-maintenance', plannedMaintenanceRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/disposals', disposalRoutes);
 app.use('/api/depreciation', depreciationRoutes);
@@ -437,6 +439,28 @@ async function autoMigrateAndSeed() {
     }
 
     // 1. Dynamic safe column patch for existing databases (prevents missing column errors)
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "PlannedMaintenance" (
+        "id" SERIAL PRIMARY KEY,
+        "assetId" INTEGER NOT NULL REFERENCES "Asset"("id") ON DELETE CASCADE,
+        "maintenanceDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "nextMaintenanceDate" TIMESTAMP(3),
+        "cycleMonths" INTEGER DEFAULT 6,
+        "performedBy" TEXT,
+        "vendor" TEXT,
+        "planContent" TEXT,
+        "result" TEXT NOT NULL DEFAULT 'PASS',
+        "cost" DOUBLE PRECISION DEFAULT 0,
+        "decisionNumber" TEXT,
+        "acceptanceMembers" TEXT,
+        "fundingSource" TEXT,
+        "deviceStatusAfter" TEXT DEFAULT 'Hoạt động tốt',
+        "note" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `).catch(() => {});
+
     const tablesToPatch = [
       { table: 'Asset', column: 'fundingSource', type: 'TEXT' },
       { table: 'Asset', column: 'decisionNumber', type: 'TEXT' },

@@ -204,6 +204,26 @@ export interface CalibrationRecord {
   approvalDate?: string;
 }
 
+export interface PlannedMaintenance {
+  id: number;
+  assetId: number;
+  asset?: Asset;
+  maintenanceDate: string;
+  nextMaintenanceDate?: string;
+  cycleMonths?: number;
+  performedBy?: string;
+  vendor?: string;
+  planContent?: string;
+  result: 'PASS' | 'FAIL' | 'PENDING' | 'NEEDS_REPAIR' | string;
+  cost?: number;
+  decisionNumber?: string;
+  acceptanceMembers?: string;
+  fundingSource?: string;
+  deviceStatusAfter?: string;
+  note?: string;
+  createdAt?: string;
+}
+
 export interface DashboardStats {
   totalAssets: number;
   dangSuDung: number;

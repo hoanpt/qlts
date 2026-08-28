@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Monitor, ArrowLeftRight, Wrench,
   ClipboardList, Trash2, TrendingDown, Award, QrCode,
   Building2, Menu, X, LogOut, User as UserIcon, Users as UsersIcon,
-  KeyRound, Eye, EyeOff, CheckCircle2
+  KeyRound, Eye, EyeOff, CheckCircle2, CalendarCheck
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiPost } from '../lib/api';
@@ -97,9 +97,15 @@ export default function Layout() {
       to: '/maintenance', 
       icon: Wrench, 
       label: isCnttManager ? 'Báo hỏng & Sửa CNTT' : 
-             isDuocManager ? 'Sửa chữa & Bảo trì TBYT' : 
+             isDuocManager ? 'Sửa chữa TBYT (khi có sự cố)' : 
              isTchcManager ? 'Sửa chữa điện & CSVC' : 
-             isDeptUser ? 'Báo hỏng thiết bị' : 'Báo hỏng & Sửa chữa' 
+             isDeptUser ? 'Báo hỏng / Sửa chữa' : 'Báo hỏng & Sửa chữa' 
+    },
+    { 
+      to: '/planned-maintenance', 
+      icon: CalendarCheck, 
+      label: isDuocManager ? 'Bảo trì định kỳ TBYT' : 
+             isDeptUser ? 'Lịch bảo trì định kỳ' : 'Bảo trì theo kế hoạch' 
     },
     { 
       to: '/transfers', 

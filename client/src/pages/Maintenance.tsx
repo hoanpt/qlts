@@ -642,15 +642,13 @@ export default function Maintenance() {
                           >
                             Xử lý
                           </button>
-                          {(!user || user.role === 'ADMIN' || (r.status === 'PENDING' && r.requestedBy === user?.fullName)) && (
-                            <button
-                              onClick={() => handleDeleteRequest(r.id)}
-                              className="p-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition cursor-pointer"
-                              title="Xóa phiếu báo hỏng"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleDeleteRequest(r.id)}
+                            className="p-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition cursor-pointer"
+                            title="Xóa phiếu báo hỏng / sửa chữa"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
