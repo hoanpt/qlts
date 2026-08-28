@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Search, Filter, Wrench, AlertTriangle, CheckCircle, Clock, 
   XCircle, Printer, Building2, Monitor, Stethoscope, Layers, FileText,
@@ -17,6 +17,7 @@ export default function Maintenance() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingRequest, setEditingRequest] = useState<any>(null);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -129,7 +130,7 @@ export default function Maintenance() {
     try {
       const [reqRes, assetRes, deptRes] = await Promise.allSettled([
         apiGet('/maintenance'),
-        apiGet('/assets?limit=1000'),
+        apiGet('/assets?limit=5000'),
         apiGet('/departments')
       ]);
 
@@ -169,18 +170,46 @@ export default function Maintenance() {
     }
   }, [activeTab, reportPeriodType, reportYear, reportMonth, reportQuarter]);
 
-  // Filter available assets based on chosen Department AND Managing Unit
-  const departmentAssets = assets
-    .filter(a => {
-      const deptMatch = a.departmentId.toString() === (showEditModal ? editData.departmentId : formData.departmentId);
-      const chosenUnit = showEditModal ? editData.managingUnit : formData.managingUnit;
-      const unitMatch = (a as any).managingUnit === chosenUnit || 
+  // Filter available assets based on chosen Department AND Managing Unit for Create Modal
+  const departmentAssets = useMemo(() => {
+    return assets
+      .filter(a => {
+        const deptMatch = a.departmentId?.toString() === formData.departmentId;
+        const chosenUnit = formData.managingUnit;
+        const unitMatch = (a as any).managingUnit === chosenUnit || 
+          (chosenUnit === 'CNTT' && a.categoryId === 2) ||
+          (chosenUnit === 'DUOC' && a.categoryId === 1) ||
+          (chosenUnit === 'TCHC' && (a.categoryId === 3 || a.categoryId === 4));
+        return deptMatch && unitMatch;
+      })
+      .sort((a, b) => (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' }));
+  }, [assets, formData.departmentId, formData.managingUnit]);
+
+  // Filter available assets for Edit Modal - ALWAYS include editingRequest's asset so it maps perfectly
+  const editDepartmentAssets = useMemo(() => {
+    let list = assets.filter(a => {
+      const deptMatch = !editData.departmentId || a.departmentId?.toString() === editData.departmentId?.toString();
+      const chosenUnit = editData.managingUnit;
+      const unitMatch = !chosenUnit || chosenUnit === 'ALL' ||
+        (a as any).managingUnit === chosenUnit || 
         (chosenUnit === 'CNTT' && a.categoryId === 2) ||
         (chosenUnit === 'DUOC' && a.categoryId === 1) ||
         (chosenUnit === 'TCHC' && (a.categoryId === 3 || a.categoryId === 4));
       return deptMatch && unitMatch;
-    })
-    .sort((a, b) => (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' }));
+    });
+
+    // Ensure the current editing request's asset is ALWAYS included
+    if (editingRequest?.asset && !list.some(a => a.id === editingRequest.asset.id)) {
+      list = [editingRequest.asset, ...list];
+    } else if (editData.assetId && !list.some(a => a.id?.toString() === editData.assetId?.toString())) {
+      const found = assets.find(a => a.id?.toString() === editData.assetId?.toString());
+      if (found) {
+        list = [found, ...list];
+      }
+    }
+
+    return list.sort((a, b) => (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' }));
+  }, [assets, editData.departmentId, editData.managingUnit, editData.assetId, editingRequest]);
 
   // Handle Create Request
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -212,14 +241,19 @@ export default function Maintenance() {
 
   // Open Edit Modal (Chỉnh sửa toàn bộ nội dung phiếu)
   const handleOpenEdit = (req: MaintenanceRequest) => {
+    setEditingRequest(req);
+    const assetUnit = (req as any).managingUnit || (req.asset as any)?.managingUnit || 'DUOC';
+    const deptId = req.departmentId ? req.departmentId.toString() : (req.asset?.departmentId ? req.asset.departmentId.toString() : '1');
+    const assetIdStr = req.assetId ? req.assetId.toString() : (req.asset?.id ? req.asset.id.toString() : '');
+
     setEditData({
       id: req.id,
-      assetId: req.assetId?.toString() || '',
-      departmentId: req.departmentId?.toString() || '1',
-      managingUnit: (req as any).managingUnit || (req.asset as any)?.managingUnit || 'CNTT',
+      assetId: assetIdStr,
+      departmentId: deptId,
+      managingUnit: assetUnit,
       requestedBy: req.requestedBy || '',
       contactPhone: (req as any).contactPhone || '',
-      locationDetail: (req as any).locationDetail || '',
+      locationDetail: (req as any).locationDetail || req.asset?.locationDetail || '',
       issueDescription: req.issueDescription || '',
       priority: req.priority || 'MEDIUM',
       status: req.status || 'PENDING',
@@ -1326,8 +1360,8 @@ export default function Maintenance() {
                   ) : (
                     <select
                       value={editData.departmentId}
-                      onChange={e => setEditData({ ...editData, departmentId: e.target.value, assetId: '' })}
-                      className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                      onChange={e => setEditData({ ...editData, departmentId: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                     >
                       {departments.map(d => (
                         <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
@@ -1340,8 +1374,8 @@ export default function Maintenance() {
                   <label className="block font-bold text-slate-700 uppercase mb-1">Khối chuyên trách quản lý</label>
                   <select
                     value={editData.managingUnit}
-                    onChange={e => setEditData({ ...editData, managingUnit: e.target.value, assetId: '' })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    onChange={e => setEditData({ ...editData, managingUnit: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                   >
                     <option value="CNTT">💻 Khối Thiết bị CNTT (Tổ CNTT)</option>
                     <option value="DUOC">🩺 Khối Trang thiết bị Y tế (Khoa Dược)</option>
@@ -1352,16 +1386,26 @@ export default function Maintenance() {
 
               {/* Row 2: Thiết bị */}
               <div>
-                <label className="block font-bold text-slate-700 uppercase mb-1">Thiết bị hỏng / cần sửa</label>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Thiết bị hỏng / cần sửa (*)</label>
                 <select
+                  required
                   value={editData.assetId}
-                  onChange={e => setEditData({ ...editData, assetId: e.target.value })}
-                  className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  onChange={e => {
+                    const sel = assets.find(a => a.id.toString() === e.target.value) || editingRequest?.asset;
+                    setEditData({
+                      ...editData,
+                      assetId: e.target.value,
+                      locationDetail: sel?.locationDetail || editData.locationDetail,
+                      departmentId: sel?.departmentId ? sel.departmentId.toString() : editData.departmentId,
+                      managingUnit: (sel as any)?.managingUnit || editData.managingUnit
+                    });
+                  }}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-800 bg-white"
                 >
-                  <option value="">-- Chọn thiết bị --</option>
-                  {departmentAssets.map(a => (
+                  <option value="">-- Chọn thiết bị trong danh mục tài sản --</option>
+                  {editDepartmentAssets.map(a => (
                     <option key={a.id} value={a.id}>
-                      [{a.assetCode}] {a.name} {a.locationDetail ? `(${a.locationDetail})` : ''}
+                      [{a.assetCode}] {a.name} {a.department?.name ? `(${a.department.name})` : ''} {a.locationDetail ? `- ${a.locationDetail}` : ''}
                     </option>
                   ))}
                 </select>

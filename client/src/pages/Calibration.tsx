@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, AlertTriangle, CheckCircle2, Clock, Award, Building, Calendar, 
   Search, Printer, DollarSign, FileText, CheckCircle, XCircle, Users,
@@ -15,6 +15,7 @@ export default function Calibration() {
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<any>(null);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -72,7 +73,7 @@ export default function Calibration() {
     try {
       const [cRes, aRes, statRes] = await Promise.allSettled([
         apiGet('/calibrations'),
-        apiGet('/assets?managingUnit=DUOC&limit=1000'),
+        apiGet('/assets?managingUnit=DUOC&limit=5000'),
         apiGet('/calibrations/stats/summary')
       ]);
 
@@ -89,6 +90,18 @@ export default function Calibration() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Filter medical assets for Edit Modal - ALWAYS include editingRecord's asset so it maps perfectly
+  const editMedicalAssets = useMemo(() => {
+    let list = [...medicalAssets];
+    if (editingRecord?.asset && !list.some(a => a.id === editingRecord.asset.id)) {
+      list = [editingRecord.asset, ...list];
+    } else if (editData.assetId && !list.some(a => a.id?.toString() === editData.assetId?.toString())) {
+      const found = records.find(r => r.assetId?.toString() === editData.assetId?.toString())?.asset;
+      if (found) list = [found, ...list];
+    }
+    return list.sort((a, b) => (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' }));
+  }, [medicalAssets, editData.assetId, editingRecord, records]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,9 +146,11 @@ export default function Calibration() {
 
   // Open Edit Modal
   const handleOpenEdit = (rec: CalibrationRecord) => {
+    setEditingRecord(rec);
+    const assetIdStr = rec.assetId ? rec.assetId.toString() : (rec.asset?.id ? rec.asset.id.toString() : '');
     setEditData({
       id: rec.id,
-      assetId: rec.assetId?.toString() || '',
+      assetId: assetIdStr,
       serviceType: rec.serviceType || 'HIEU_CHUAN',
       servicePackage: (rec as any).servicePackage || '',
       vendor: rec.vendor || '',
@@ -704,7 +719,7 @@ export default function Calibration() {
                   className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                 >
                   <option value="">-- Chọn thiết bị trong danh mục Khoa Dược --</option>
-                  {medicalAssets.map(a => (
+                  {editMedicalAssets.map(a => (
                     <option key={a.id} value={a.id}>
                       [{a.assetCode}] {a.name} ({a.department?.name || 'CDC'})
                     </option>
