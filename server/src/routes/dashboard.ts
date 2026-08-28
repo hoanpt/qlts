@@ -47,18 +47,17 @@ router.get('/stats', requireAuth, async (req: any, res) => {
     const networkCount = await prisma.asset.count({ where: { ...baseWhere, OR: [{ name: { contains: 'mạng' } }, { name: { contains: 'switch' } }, { name: { contains: 'router' } }, { name: { contains: 'wifi' } }] } });
 
     const badges: any[] = [];
-    if (!req.user || req.user.role === 'ADMIN') {
-      badges.push(
-        { name: 'Khối TBYT (Khoa Dược)', count: duocTotal, percent: totalAssets ? Math.round((duocTotal / totalAssets) * 100) : 0, key: 'DUOC' },
-        { name: 'Khối CNTT', count: cnttTotal, percent: totalAssets ? Math.round((cnttTotal / totalAssets) * 100) : 0, key: 'CNTT' },
-        { name: 'TCHC (Thiết bị hành chính)', count: tchcHanhchinh, percent: totalAssets ? Math.round((tchcHanhchinh / totalAssets) * 100) : 0, key: 'TCHC_HC' },
-        { name: 'TCHC (Hạ tầng tòa nhà các tầng)', count: tchcToanha, percent: totalAssets ? Math.round((tchcToanha / totalAssets) * 100) : 0, key: 'TCHC_TOANHA' }
-      );
-    }
+    badges.push(
+      { name: 'Khối TBYT (Khoa Dược)', count: duocTotal, percent: totalAssets ? Math.round((duocTotal / totalAssets) * 100) : 0, key: 'DUOC' },
+      { name: 'Khối Thiết bị CNTT (Tổ CNTT)', count: cnttTotal, percent: totalAssets ? Math.round((cnttTotal / totalAssets) * 100) : 0, key: 'CNTT' },
+      { name: 'Khối TCHC (Thiết bị hành chính)', count: tchcHanhchinh, percent: totalAssets ? Math.round((tchcHanhchinh / totalAssets) * 100) : 0, key: 'TCHC_HC' },
+      { name: 'Khối TCHC (Hạ tầng tòa nhà)', count: tchcToanha, percent: totalAssets ? Math.round((tchcToanha / totalAssets) * 100) : 0, key: 'TCHC_TOANHA' }
+    );
     badges.push(
       { name: 'PC / Máy để bàn', count: pcCount, percent: totalAssets ? Math.round((pcCount / totalAssets) * 100) : 0 },
       { name: 'Laptop', count: laptopCount, percent: totalAssets ? Math.round((laptopCount / totalAssets) * 100) : 0 },
-      { name: 'Máy in / Scan', count: mayInCount, percent: totalAssets ? Math.round((mayInCount / totalAssets) * 100) : 0 }
+      { name: 'Máy in / Scan', count: mayInCount, percent: totalAssets ? Math.round((mayInCount / totalAssets) * 100) : 0 },
+      { name: 'Thiết bị Mạng / WiFi', count: networkCount, percent: totalAssets ? Math.round((networkCount / totalAssets) * 100) : 0 }
     );
 
     res.json({

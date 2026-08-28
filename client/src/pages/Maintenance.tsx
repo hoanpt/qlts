@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Wrench, AlertTriangle, CheckCircle, Clock, 
   XCircle, Printer, Building2, Monitor, Stethoscope, Layers, FileText,
-  Calendar, DollarSign, User, Phone, CheckCircle2, ChevronRight, BarChart2, Users
+  Calendar, DollarSign, User, Phone, CheckCircle2, ChevronRight, BarChart2, Users,
+  Download, Edit3, Trash2
 } from 'lucide-react';
-import { apiGet, apiPost, apiPut } from '../lib/api';
+import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
 import { MaintenanceRequest, Asset, Department, PRIORITY_LABELS } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -35,7 +36,13 @@ export default function Maintenance() {
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showProcessModal, setShowProcessModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequest | null>(null);
+
+  // Export Dialog State
+  const [exportSortBy, setExportSortBy] = useState('date');
+  const [exportSortOrder, setExportSortOrder] = useState('desc');
 
   // Create Form State with Cascading Selections
   const [formData, setFormData] = useState({
@@ -47,6 +54,33 @@ export default function Maintenance() {
     locationDetail: '',
     issueDescription: '',
     priority: 'MEDIUM'
+  });
+
+  // Edit All Fields Form State
+  const [editData, setEditData] = useState<any>({
+    id: 0,
+    assetId: '',
+    departmentId: '1',
+    managingUnit: 'CNTT',
+    requestedBy: '',
+    contactPhone: '',
+    locationDetail: '',
+    issueDescription: '',
+    priority: 'MEDIUM',
+    status: 'PENDING',
+    maintenanceType: 'SUA_CHUA',
+    servicePackage: '',
+    technicianName: '',
+    repairVendor: '',
+    repairCost: '',
+    fundingSource: 'Nguồn ngân sách',
+    decisionNumber: '',
+    replacementParts: '',
+    acceptanceMembers: '',
+    deviceStatusAfter: 'Hoạt động tốt',
+    repairNote: '',
+    requestDate: '',
+    completedDate: ''
   });
 
   // Process / Update Form State
@@ -138,11 +172,12 @@ export default function Maintenance() {
   // Filter available assets based on chosen Department AND Managing Unit
   const departmentAssets = assets
     .filter(a => {
-      const deptMatch = a.departmentId.toString() === formData.departmentId;
-      const unitMatch = (a as any).managingUnit === formData.managingUnit || 
-        (formData.managingUnit === 'CNTT' && a.categoryId === 2) ||
-        (formData.managingUnit === 'DUOC' && a.categoryId === 1) ||
-        (formData.managingUnit === 'TCHC' && (a.categoryId === 3 || a.categoryId === 4));
+      const deptMatch = a.departmentId.toString() === (showEditModal ? editData.departmentId : formData.departmentId);
+      const chosenUnit = showEditModal ? editData.managingUnit : formData.managingUnit;
+      const unitMatch = (a as any).managingUnit === chosenUnit || 
+        (chosenUnit === 'CNTT' && a.categoryId === 2) ||
+        (chosenUnit === 'DUOC' && a.categoryId === 1) ||
+        (chosenUnit === 'TCHC' && (a.categoryId === 3 || a.categoryId === 4));
       return deptMatch && unitMatch;
     })
     .sort((a, b) => (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' }));
@@ -173,6 +208,79 @@ export default function Maintenance() {
     } catch (e: any) {
       alert(e.message || 'Lỗi khi tạo yêu cầu sửa chữa');
     }
+  };
+
+  // Open Edit Modal (Chỉnh sửa toàn bộ nội dung phiếu)
+  const handleOpenEdit = (req: MaintenanceRequest) => {
+    setEditData({
+      id: req.id,
+      assetId: req.assetId?.toString() || '',
+      departmentId: req.departmentId?.toString() || '1',
+      managingUnit: (req as any).managingUnit || (req.asset as any)?.managingUnit || 'CNTT',
+      requestedBy: req.requestedBy || '',
+      contactPhone: (req as any).contactPhone || '',
+      locationDetail: (req as any).locationDetail || '',
+      issueDescription: req.issueDescription || '',
+      priority: req.priority || 'MEDIUM',
+      status: req.status || 'PENDING',
+      maintenanceType: (req as any).maintenanceType || 'SUA_CHUA',
+      servicePackage: (req as any).servicePackage || '',
+      technicianName: (req as any).technicianName || '',
+      repairVendor: (req as any).repairVendor || '',
+      repairCost: (req as any).repairCost !== undefined && (req as any).repairCost !== null ? (req as any).repairCost.toString() : '',
+      fundingSource: (req as any).fundingSource || 'Nguồn ngân sách',
+      decisionNumber: (req as any).decisionNumber || '',
+      replacementParts: (req as any).replacementParts || '',
+      acceptanceMembers: (req as any).acceptanceMembers || '',
+      deviceStatusAfter: (req as any).deviceStatusAfter || 'Hoạt động tốt',
+      repairNote: (req as any).repairNote || '',
+      requestDate: req.requestDate ? new Date(req.requestDate).toISOString().split('T')[0] : '',
+      completedDate: (req as any).completedDate ? new Date((req as any).completedDate).toISOString().split('T')[0] : ''
+    });
+    setShowEditModal(true);
+  };
+
+  // Submit Edit Form
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editData.requestedBy || !editData.issueDescription) {
+      alert('Vui lòng nhập người đề nghị và mô tả sự cố!');
+      return;
+    }
+    try {
+      await apiPut(`/maintenance/${editData.id}`, editData);
+      setShowEditModal(false);
+      loadData();
+      alert('Đã cập nhật toàn bộ thông tin phiếu sửa chữa/bảo trì thành công!');
+    } catch (e: any) {
+      alert(e.message || 'Lỗi khi cập nhật phiếu');
+    }
+  };
+
+  // Delete Request
+  const handleDeleteRequest = async (id: number) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa phiếu báo hỏng / sửa chữa này?')) return;
+    try {
+      await apiDelete(`/maintenance/${id}`);
+      loadData();
+      alert('Đã xóa phiếu thành công!');
+    } catch (e: any) {
+      alert(e.message || 'Lỗi khi xóa phiếu');
+    }
+  };
+
+  // Handle Export Excel with user criteria
+  const handleExportExcel = () => {
+    const params = new URLSearchParams();
+    if (deptFilter && deptFilter !== 'ALL') params.append('departmentId', deptFilter);
+    if (unitFilter && unitFilter !== 'ALL') params.append('managingUnit', unitFilter);
+    if (statusFilter && statusFilter !== 'ALL') params.append('status', statusFilter);
+    if (priorityFilter && priorityFilter !== 'ALL') params.append('priority', priorityFilter);
+    params.append('sortBy', exportSortBy);
+    params.append('sortOrder', exportSortOrder);
+
+    window.open(`/api/export/maintenance?${params.toString()}`, '_blank');
+    setShowExportModal(false);
   };
 
   // Open Process Modal
@@ -224,11 +332,11 @@ export default function Maintenance() {
     return searchMatch && statusMatch && priorityMatch && unitMatch && deptMatch;
   });
 
-  // Calculate Statistics
-  const totalCount = requests.length;
-  const pendingCount = requests.filter(r => r.status === 'PENDING').length;
-  const inProgressCount = requests.filter(r => r.status === 'IN_PROGRESS').length;
-  const completedCount = requests.filter(r => r.status === 'COMPLETED').length;
+  // Calculate Statistics (Đếm theo số lượng thiết bị duy nhất - distinct assets)
+  const distinctAssetsCount = new Set(requests.map(r => r.assetId)).size;
+  const distinctPendingCount = new Set(requests.filter(r => r.status === 'PENDING').map(r => r.assetId)).size;
+  const distinctInProgressCount = new Set(requests.filter(r => r.status === 'IN_PROGRESS').map(r => r.assetId)).size;
+  const distinctCompletedCount = new Set(requests.filter(r => r.status === 'COMPLETED').map(r => r.assetId)).size;
   const totalCost = requests.reduce((sum, r) => sum + (r.repairCost || 0), 0);
 
   return (
@@ -245,7 +353,15 @@ export default function Maintenance() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 shadow-sm transition cursor-pointer"
+            title="Xuất file Excel danh sách sửa chữa bảo trì với tùy chọn sắp xếp"
+          >
+            <Download className="w-4 h-4 text-emerald-600" /> Xuất Excel
+          </button>
+
           <button
             onClick={() => setActiveTab(activeTab === 'LIST' ? 'REPORT' : 'LIST')}
             className={`flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl border transition cursor-pointer ${
@@ -267,26 +383,34 @@ export default function Maintenance() {
         </div>
       </div>
 
-      {/* 2. STATS CARDS */}
+      {/* 2. STATS CARDS (Tổng số thiết bị hỏng / sửa chữa) */}
       <div className="print:hidden grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tổng số ca</div>
-          <div className="text-xl font-bold text-slate-900 mt-1">{totalCount}</div>
+          <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tổng thiết bị hỏng</div>
+          <div className="text-xl font-bold text-slate-900 mt-1">
+            {distinctAssetsCount} <span className="text-xs font-normal text-slate-500">thiết bị</span>
+          </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-amber-200 bg-amber-50/40 shadow-xs">
           <div className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Chờ tiếp nhận</div>
-          <div className="text-xl font-bold text-amber-800 mt-1">{pendingCount}</div>
+          <div className="text-xl font-bold text-amber-800 mt-1">
+            {distinctPendingCount} <span className="text-xs font-normal text-amber-600">thiết bị</span>
+          </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-blue-200 bg-blue-50/40 shadow-xs">
           <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Đang xử lý</div>
-          <div className="text-xl font-bold text-blue-800 mt-1">{inProgressCount}</div>
+          <div className="text-xl font-bold text-blue-800 mt-1">
+            {distinctInProgressCount} <span className="text-xs font-normal text-blue-600">thiết bị</span>
+          </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-emerald-200 bg-emerald-50/40 shadow-xs">
           <div className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Đã hoàn thành</div>
-          <div className="text-xl font-bold text-emerald-800 mt-1">{completedCount}</div>
+          <div className="text-xl font-bold text-emerald-800 mt-1">
+            {distinctCompletedCount} <span className="text-xs font-normal text-emerald-600">thiết bị</span>
+          </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-purple-200 bg-purple-50/40 shadow-xs col-span-2 sm:col-span-1">
@@ -422,12 +546,31 @@ export default function Maintenance() {
                         {r.repairCost ? Number(r.repairCost).toLocaleString('vi-VN') : '-'}
                       </td>
                       <td className="p-3.5 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => handleOpenProcess(r)}
-                          className="px-3 py-1 bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
-                        >
-                          Xử lý / Cập nhật
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenEdit(r)}
+                            className="p-1.5 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white rounded-lg transition cursor-pointer"
+                            title="Chỉnh sửa toàn bộ nội dung phiếu"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenProcess(r)}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
+                            title="Tiếp nhận & Cập nhật tiến độ"
+                          >
+                            Xử lý
+                          </button>
+                          {(!user || user.role === 'ADMIN' || (r.status === 'PENDING' && r.requestedBy === user?.fullName)) && (
+                            <button
+                              onClick={() => handleDeleteRequest(r.id)}
+                              className="p-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition cursor-pointer"
+                              title="Xóa phiếu báo hỏng"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -557,8 +700,8 @@ export default function Maintenance() {
             {/* KPI Summary Row */}
             <div className="grid grid-cols-4 gap-3 font-sans text-xs mb-6 text-center">
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                <div className="text-slate-500 font-medium">Tổng số ca báo hỏng</div>
-                <div className="text-lg font-bold text-slate-900 mt-0.5">{reportData?.summary?.total || 0}</div>
+                <div className="text-slate-500 font-medium">Tổng thiết bị hỏng / sửa</div>
+                <div className="text-lg font-bold text-slate-900 mt-0.5">{reportData?.summary?.distinctAssetCount || reportData?.summary?.total || 0} thiết bị</div>
               </div>
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
                 <div className="text-emerald-700 font-medium">Đã hoàn thành sửa</div>
@@ -584,7 +727,7 @@ export default function Maintenance() {
                   <thead className="bg-slate-100 font-bold border-b border-slate-300">
                     <tr>
                       <th className="p-2.5">Đơn vị chuyên trách</th>
-                      <th className="p-2.5 text-center">Số ca báo hỏng</th>
+                      <th className="p-2.5 text-center">Số lượng thiết bị</th>
                       <th className="p-2.5 text-center">Đã sửa xong</th>
                       <th className="p-2.5 text-right">Tổng chi phí sửa chữa (đ)</th>
                     </tr>
@@ -1144,6 +1287,355 @@ export default function Maintenance() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 4: CHỈNH SỬA TOÀN BỘ NỘI DUNG PHIẾU BẢO TRÌ / SỬA CHỮA              */}
+      {/* ========================================================================= */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Chỉnh Sửa Toàn Bộ Hồ Sơ Sửa Chữa / Bảo Trì</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Cho phép chỉnh sửa thông tin kỹ thuật, kinh phí, đơn vị thực hiện, số quyết định</p>
+              </div>
+              <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+              {/* Row 1: Khoa phòng & Khối quản lý */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Khoa / Phòng sử dụng</label>
+                  <select
+                    value={editData.departmentId}
+                    onChange={e => setEditData({ ...editData, departmentId: e.target.value, assetId: '' })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {departments.map(d => (
+                      <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Khối chuyên trách quản lý</label>
+                  <select
+                    value={editData.managingUnit}
+                    onChange={e => setEditData({ ...editData, managingUnit: e.target.value, assetId: '' })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="CNTT">💻 Khối Thiết bị CNTT (Tổ CNTT)</option>
+                    <option value="DUOC">🩺 Khối Trang thiết bị Y tế (Khoa Dược)</option>
+                    <option value="TCHC">🏢 Khối Thiết bị Hành chính (Phòng TCHC)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 2: Thiết bị */}
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Thiết bị hỏng / cần sửa</label>
+                <select
+                  value={editData.assetId}
+                  onChange={e => setEditData({ ...editData, assetId: e.target.value })}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="">-- Chọn thiết bị --</option>
+                  {departmentAssets.map(a => (
+                    <option key={a.id} value={a.id}>
+                      [{a.assetCode}] {a.name} {a.locationDetail ? `(${a.locationDetail})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Row 3: Người báo & SĐT */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Người đề nghị</label>
+                  <input
+                    type="text"
+                    required
+                    value={editData.requestedBy}
+                    onChange={e => setEditData({ ...editData, requestedBy: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Số điện thoại liên hệ</label>
+                  <input
+                    type="text"
+                    value={editData.contactPhone}
+                    onChange={e => setEditData({ ...editData, contactPhone: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Vị trí phòng / tầng</label>
+                  <input
+                    type="text"
+                    value={editData.locationDetail}
+                    onChange={e => setEditData({ ...editData, locationDetail: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Row 4: Ngày báo hỏng, Mức ưu tiên & Trạng thái */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Ngày báo hỏng</label>
+                  <input
+                    type="date"
+                    value={editData.requestDate}
+                    onChange={e => setEditData({ ...editData, requestDate: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Mức độ ưu tiên</label>
+                  <select
+                    value={editData.priority}
+                    onChange={e => setEditData({ ...editData, priority: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="LOW">Thấp</option>
+                    <option value="MEDIUM">Trung bình</option>
+                    <option value="HIGH">Cao</option>
+                    <option value="URGENT">Khẩn cấp</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Trạng thái xử lý</label>
+                  <select
+                    value={editData.status}
+                    onChange={e => setEditData({ ...editData, status: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold"
+                  >
+                    <option value="PENDING">Chờ tiếp nhận</option>
+                    <option value="IN_PROGRESS">Đang xử lý</option>
+                    <option value="COMPLETED">Đã hoàn thành</option>
+                    <option value="REJECTED">Từ chối</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Mô tả sự cố */}
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Mô tả chi tiết sự cố</label>
+                <textarea
+                  rows={2}
+                  required
+                  value={editData.issueDescription}
+                  onChange={e => setEditData({ ...editData, issueDescription: e.target.value })}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+
+              {/* Thông tin xử lý & Kinh phí */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <div className="font-bold text-slate-800 text-xs uppercase">Thông tin kỹ thuật & Kinh phí sửa chữa</div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Cán bộ kỹ thuật / Tiếp nhận</label>
+                    <input
+                      type="text"
+                      value={editData.technicianName}
+                      onChange={e => setEditData({ ...editData, technicianName: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Đơn vị sửa chữa / Đối tác</label>
+                    <input
+                      type="text"
+                      value={editData.repairVendor}
+                      onChange={e => setEditData({ ...editData, repairVendor: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Kinh phí sửa chữa (VNĐ)</label>
+                    <input
+                      type="number"
+                      value={editData.repairCost}
+                      onChange={e => setEditData({ ...editData, repairCost: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white font-mono outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Nguồn kinh phí</label>
+                    <select
+                      value={editData.fundingSource}
+                      onChange={e => setEditData({ ...editData, fundingSource: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white outline-none"
+                    >
+                      <option value="Nguồn ngân sách">Nguồn ngân sách</option>
+                      <option value="Nguồn thu dịch vụ y tế">Nguồn thu dịch vụ y tế</option>
+                      <option value="Nguồn thu sự nghiệp">Nguồn thu sự nghiệp</option>
+                      <option value="Nguồn viện trợ / Khác">Nguồn viện trợ / Khác</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Số quyết định / Hợp đồng</label>
+                    <input
+                      type="text"
+                      value={editData.decisionNumber}
+                      onChange={e => setEditData({ ...editData, decisionNumber: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Ngày hoàn thành</label>
+                    <input
+                      type="date"
+                      value={editData.completedDate}
+                      onChange={e => setEditData({ ...editData, completedDate: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Linh kiện thay thế</label>
+                    <input
+                      type="text"
+                      value={editData.replacementParts}
+                      onChange={e => setEditData({ ...editData, replacementParts: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Thành viên nghiệm thu</label>
+                    <input
+                      type="text"
+                      value={editData.acceptanceMembers}
+                      onChange={e => setEditData({ ...editData, acceptanceMembers: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-600 mb-1">Nội dung xử lý & Ghi chú kỹ thuật</label>
+                  <textarea
+                    rows={2}
+                    value={editData.repairNote}
+                    onChange={e => setEditData({ ...editData, repairNote: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl bg-white outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Lưu Toàn Bộ Thông Tin
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: XUẤT EXCEL DANH SÁCH SỬA CHỮA / BẢO TRÌ CÓ SẮP XẾP CHỈ ĐỊNH       */}
+      {/* ========================================================================= */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Xuất Danh Sách Sửa Chữa Sang Excel</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Tùy chọn sắp xếp theo danh mục chỉ định & thứ tự</p>
+              </div>
+              <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1.5">Sắp xếp danh sách theo</label>
+                <select
+                  value={exportSortBy}
+                  onChange={e => setExportSortBy(e.target.value)}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl font-semibold bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="fundingSource">💰 Nguồn kinh phí (Ngân sách, Dịch vụ y tế, Thu sự nghiệp...)</option>
+                  <option value="status">📌 Tình trạng xử lý (Chờ tiếp nhận, Đang xử lý, Đã hoàn thành...)</option>
+                  <option value="managingUnit">🏢 Khối quản lý (CNTT, Khoa Dược, Phòng TCHC)</option>
+                  <option value="department">🏛️ Khoa / Phòng yêu cầu (A-Z)</option>
+                  <option value="priority">⚡ Mức độ ưu tiên (Khẩn cấp, Cao, Trung bình, Thấp)</option>
+                  <option value="date">📅 Ngày báo hỏng / sửa chữa</option>
+                  <option value="cost">💵 Chi phí sửa chữa</option>
+                  <option value="assetCode">🏷️ Mã thiết bị (Asset Code)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1.5">Thứ tự hiển thị</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExportSortOrder('asc')}
+                    className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition ${
+                      exportSortOrder === 'asc'
+                        ? 'bg-blue-50 border-blue-500 text-blue-800'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Tăng dần (A ➔ Z / Cũ ➔ Mới)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportSortOrder('desc')}
+                    className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition ${
+                      exportSortOrder === 'desc'
+                        ? 'bg-blue-50 border-blue-500 text-blue-800'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Giảm dần (Z ➔ A / Mới ➔ Cũ)
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-blue-50 rounded-xl text-blue-800 text-[11px]">
+                <p>💡 File Excel xuất ra sẽ được định dạng chuẩn CDC Đà Nẵng, có kẻ bảng, tổng hợp kinh phí bằng công thức SUM và sẵn 3 khối chữ ký.</p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowExportModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" /> Tải File Excel
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -180,45 +180,23 @@ export default function Assets() {
         </div>
       </div>
 
-      {/* 3 PRIMARY DIVISION TABS (3 Khối Quản Lý Tài Sản Chuyên Trách) */}
+      {/* 3 PRIMARY DIVISION TABS (Các Khối Quản Lý Tài Sản Chuyên Trách: CNTT, TCHC, DƯỢC) */}
       <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200">
         <div className="flex flex-wrap gap-1.5">
-          {(!user || user.role === 'ADMIN') && (
-            <button
-              onClick={() => { setActiveTab('ALL'); setPage(1); }}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-                activeTab === 'ALL'
-                  ? 'bg-slate-900 text-white shadow'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <span>Tất cả tài sản</span>
-              <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'ALL' ? 'bg-slate-800 text-slate-200' : 'bg-slate-200 text-slate-700'}`}>
-                3,501
-              </span>
-            </button>
-          )}
+          {/* Tab: Tất cả tài sản */}
+          <button
+            onClick={() => { setActiveTab('ALL'); setPage(1); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+              activeTab === 'ALL'
+                ? 'bg-slate-900 text-white shadow'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <span>{user?.role === 'DEPARTMENT' ? 'Tất cả tài sản của Khoa' : 'Tất cả tài sản'}</span>
+          </button>
 
-          {/* 1. Khoa Dược (TBYT) */}
-          {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_DUOC') && (
-            <button
-              onClick={() => { setActiveTab('DUOC'); setPage(1); }}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-                activeTab === 'DUOC'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'
-              }`}
-            >
-              <Stethoscope className="w-4 h-4" />
-              <span>Khối Trang thiết bị Y tế (Khoa Dược)</span>
-              <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'DUOC' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
-                1,497
-              </span>
-            </button>
-          )}
-
-          {/* 2. Tổ CNTT */}
-          {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_CNTT') && (
+          {/* 1. Thiết bị CNTT */}
+          {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_CNTT' || user.role === 'DEPARTMENT') && (
             <button
               onClick={() => { setActiveTab('CNTT'); setPage(1); }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
@@ -228,15 +206,12 @@ export default function Assets() {
               }`}
             >
               <Monitor className="w-4 h-4" />
-              <span>Khối Thiết bị CNTT (Tổ CNTT)</span>
-              <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'CNTT' ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}>
-                713
-              </span>
+              <span>{user?.role === 'DEPARTMENT' ? 'Khối Thiết bị CNTT của Khoa' : 'Khối Thiết bị CNTT (Tổ CNTT)'}</span>
             </button>
           )}
 
-          {/* 3. TCHC - Thiết bị hành chính */}
-          {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_TCHC') && (
+          {/* 2. TCHC - Thiết bị hành chính / Văn phòng */}
+          {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_TCHC' || user.role === 'DEPARTMENT') && (
             <button
               onClick={() => { setActiveTab('TCHC_HC'); setPage(1); }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
@@ -246,14 +221,26 @@ export default function Assets() {
               }`}
             >
               <Building2 className="w-4 h-4" />
-              <span>TCHC (Thiết bị hành chính)</span>
-              <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'TCHC_HC' ? 'bg-amber-700 text-white' : 'bg-amber-100 text-amber-800'}`}>
-                294
-              </span>
+              <span>{user?.role === 'DEPARTMENT' ? 'Khối Thiết bị TCHC / VP của Khoa' : 'TCHC (Thiết bị hành chính)'}</span>
             </button>
           )}
 
-          {/* 4. TCHC - Cơ sở vật chất tòa nhà theo tầng */}
+          {/* 3. Khoa Dược (TBYT) */}
+          {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_DUOC' || user.role === 'DEPARTMENT') && (
+            <button
+              onClick={() => { setActiveTab('DUOC'); setPage(1); }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+                activeTab === 'DUOC'
+                  ? 'bg-emerald-600 text-white shadow'
+                  : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'
+              }`}
+            >
+              <Stethoscope className="w-4 h-4" />
+              <span>{user?.role === 'DEPARTMENT' ? 'Khối Trang thiết bị Y tế (Dược)' : 'Khối Trang thiết bị Y tế (Khoa Dược)'}</span>
+            </button>
+          )}
+
+          {/* 4. TCHC - Cơ sở vật chất tòa nhà theo tầng (Chỉ cho Admin và TCHC) */}
           {(!user || user.role === 'ADMIN' || user.role === 'MANAGER_TCHC') && (
             <button
               onClick={() => { setActiveTab('TCHC_TOANHA'); setPage(1); }}
@@ -265,16 +252,13 @@ export default function Assets() {
             >
               <Layers className="w-4 h-4" />
               <span>TCHC (Hạ tầng tòa nhà theo tầng)</span>
-              <span className={`px-2 py-0.5 rounded-full text-[11px] ${activeTab === 'TCHC_TOANHA' ? 'bg-orange-700 text-white' : 'bg-orange-100 text-orange-800'}`}>
-                997
-              </span>
             </button>
           )}
 
           {/* Khoa phòng banner if department user */}
           {user?.role === 'DEPARTMENT' && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-800 rounded-xl text-xs font-bold">
-              <span>🏢 Đang hiển thị danh mục tài sản do {user.fullName} trực tiếp quản lý & sử dụng</span>
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-800 rounded-xl text-xs font-bold ml-auto">
+              <span>🏢 Danh mục tài sản {user.fullName} đang quản lý theo 3 khối (CNTT, TCHC, Dược)</span>
             </div>
           )}
         </div>

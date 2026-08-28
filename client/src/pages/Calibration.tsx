@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, AlertTriangle, CheckCircle2, Clock, Award, Building, Calendar, 
   Search, Printer, DollarSign, FileText, CheckCircle, XCircle, Users,
-  Layers, ShieldCheck, Sparkles
+  Layers, ShieldCheck, Sparkles, Download, Edit3, Trash2
 } from 'lucide-react';
-import { apiGet, apiPost } from '../lib/api';
+import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
 import { Asset, CalibrationRecord } from '../types';
 
 export default function Calibration() {
@@ -13,6 +13,8 @@ export default function Calibration() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -20,7 +22,11 @@ export default function Calibration() {
   const [locationFilter, setLocationFilter] = useState('ALL');
   const [resultFilter, setResultFilter] = useState('ALL');
 
-  // Form State
+  // Export sorting state
+  const [exportSortBy, setExportSortBy] = useState('date');
+  const [exportSortOrder, setExportSortOrder] = useState('asc');
+
+  // Create Form State
   const [formData, setFormData] = useState({
     assetId: '',
     serviceType: 'HIEU_CHUAN',
@@ -34,6 +40,27 @@ export default function Calibration() {
     performedBy: 'Ds. Tính, Ds. Lộc, Cn. Hải, Cn. Sơn',
     acceptanceMembers: 'Ds. Tính, Ds. Lộc, Cn. Hải, Cn. Sơn',
     deviceStatusAfter: 'Tốt (Đạt tiêu chuẩn ISO 17025)',
+    result: 'PASS',
+    certificateNumber: '',
+    fundingSource: 'Thu sự nghiệp',
+    note: ''
+  });
+
+  // Edit Form State
+  const [editData, setEditData] = useState<any>({
+    id: 0,
+    assetId: '',
+    serviceType: 'HIEU_CHUAN',
+    servicePackage: '',
+    vendor: '',
+    decisionNumber: '',
+    departmentLocation: '',
+    calibrationDate: '',
+    nextCalibrationDate: '',
+    cost: '',
+    performedBy: '',
+    acceptanceMembers: '',
+    deviceStatusAfter: '',
     result: 'PASS',
     certificateNumber: '',
     fundingSource: 'Thu sự nghiệp',
@@ -104,6 +131,89 @@ export default function Calibration() {
     }
   };
 
+  // Open Edit Modal
+  const handleOpenEdit = (rec: CalibrationRecord) => {
+    setEditData({
+      id: rec.id,
+      assetId: rec.assetId?.toString() || '',
+      serviceType: rec.serviceType || 'HIEU_CHUAN',
+      servicePackage: (rec as any).servicePackage || '',
+      vendor: rec.vendor || '',
+      decisionNumber: (rec as any).decisionNumber || '',
+      departmentLocation: (rec as any).departmentLocation || '',
+      calibrationDate: rec.calibrationDate ? new Date(rec.calibrationDate).toISOString().split('T')[0] : '',
+      nextCalibrationDate: rec.nextCalibrationDate ? new Date(rec.nextCalibrationDate).toISOString().split('T')[0] : '',
+      cost: (rec as any).cost !== undefined && (rec as any).cost !== null ? (rec as any).cost.toString() : '',
+      performedBy: rec.performedBy || '',
+      acceptanceMembers: (rec as any).acceptanceMembers || '',
+      deviceStatusAfter: (rec as any).deviceStatusAfter || '',
+      result: rec.result || 'PASS',
+      certificateNumber: rec.certificateNumber || '',
+      fundingSource: (rec as any).fundingSource || 'Thu sự nghiệp',
+      note: rec.note || ''
+    });
+    setShowEditModal(true);
+  };
+
+  // Submit Edit Form
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editData.assetId || !editData.calibrationDate) {
+      alert('Vui lòng chọn thiết bị y tế và ngày thực hiện!');
+      return;
+    }
+    try {
+      await apiPut(`/calibrations/${editData.id}`, {
+        assetId: parseInt(editData.assetId),
+        calibrationDate: new Date(editData.calibrationDate).toISOString(),
+        nextCalibrationDate: editData.nextCalibrationDate ? new Date(editData.nextCalibrationDate).toISOString() : null,
+        serviceType: editData.serviceType,
+        servicePackage: editData.servicePackage,
+        vendor: editData.vendor,
+        decisionNumber: editData.decisionNumber,
+        departmentLocation: editData.departmentLocation,
+        cost: parseFloat(editData.cost) || 0,
+        performedBy: editData.performedBy,
+        acceptanceMembers: editData.acceptanceMembers,
+        deviceStatusAfter: editData.deviceStatusAfter,
+        result: editData.result,
+        certificateNumber: editData.certificateNumber,
+        fundingSource: editData.fundingSource,
+        note: editData.note
+      });
+      alert('Đã cập nhật hồ sơ hiệu chuẩn / kiểm định thành công!');
+      setShowEditModal(false);
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || 'Lỗi khi cập nhật hồ sơ');
+    }
+  };
+
+  // Delete Record
+  const handleDeleteRecord = async (id: number) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa hồ sơ hiệu chuẩn này?')) return;
+    try {
+      await apiDelete(`/calibrations/${id}`);
+      alert('Đã xóa hồ sơ hiệu chuẩn thành công!');
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || 'Lỗi khi xóa hồ sơ');
+    }
+  };
+
+  // Export Excel
+  const handleExportExcel = () => {
+    const params = new URLSearchParams();
+    if (serviceTypeFilter && serviceTypeFilter !== 'ALL') params.append('serviceType', serviceTypeFilter);
+    if (locationFilter && locationFilter !== 'ALL') params.append('location', locationFilter);
+    if (resultFilter && resultFilter !== 'ALL') params.append('result', resultFilter);
+    params.append('sortBy', exportSortBy);
+    params.append('sortOrder', exportSortOrder);
+
+    window.open(`/api/export/calibrations?${params.toString()}`, '_blank');
+    setShowExportModal(false);
+  };
+
   // Filtered records
   const filteredRecords = records.filter(r => {
     const searchMatch = !search ||
@@ -120,6 +230,7 @@ export default function Calibration() {
     return searchMatch && typeMatch && locMatch && resMatch;
   });
 
+  const distinctAssetsCount = new Set(records.map(r => r.assetId)).size;
   const totalCost = records.reduce((sum, r) => sum + (r.cost || 0), 0);
 
   return (
@@ -137,6 +248,14 @@ export default function Calibration() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 shadow-xs transition cursor-pointer"
+            title="Xuất danh sách hiệu chuẩn TBYT ra file Excel với tùy chọn sắp xếp"
+          >
+            <Download className="w-4 h-4 text-emerald-600" /> Xuất Excel
+          </button>
+
           <button
             onClick={() => window.print()}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-xs transition cursor-pointer"
@@ -157,7 +276,9 @@ export default function Calibration() {
       <div className="print:hidden grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tổng số thiết bị</div>
-          <div className="text-xl font-bold text-slate-900 mt-1">{records.length}</div>
+          <div className="text-xl font-bold text-slate-900 mt-1">
+            {distinctAssetsCount} <span className="text-xs font-normal text-slate-500">thiết bị ({records.length} lượt)</span>
+          </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-blue-200 bg-blue-50/40 shadow-xs">
@@ -255,13 +376,14 @@ export default function Calibration() {
                 <th className="p-3.5 text-right">Kinh phí (đ)</th>
                 <th className="p-3.5">Đánh giá sau HC</th>
                 <th className="p-3.5 min-w-[120px]">Người nghiệm thu</th>
+                <th className="p-3.5 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={10} className="text-center py-12 text-slate-400">Đang tải hồ sơ hiệu chuẩn...</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-slate-400">Đang tải hồ sơ hiệu chuẩn...</td></tr>
               ) : filteredRecords.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-12 text-slate-400">Không tìm thấy thiết bị nào phù hợp.</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-slate-400">Không tìm thấy thiết bị nào phù hợp.</td></tr>
               ) : (
                 filteredRecords.map((r, idx) => (
                   <tr key={r.id} className="hover:bg-slate-50/80 transition">
@@ -294,6 +416,24 @@ export default function Calibration() {
                       </span>
                     </td>
                     <td className="p-3.5 text-slate-600 text-[11px]">{(r as any).acceptanceMembers || r.performedBy || '-'}</td>
+                    <td className="p-3.5 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleOpenEdit(r)}
+                          className="p-1.5 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white rounded-lg transition cursor-pointer"
+                          title="Chỉnh sửa hồ sơ hiệu chuẩn"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRecord(r.id)}
+                          className="p-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition cursor-pointer"
+                          title="Xóa hồ sơ hiệu chuẩn"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -536,6 +676,302 @@ export default function Calibration() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 7. MODAL CHỈNH SỬA HỒ SƠ HIỆU CHUẨN                                       */}
+      {/* ========================================================================= */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Chỉnh Sửa Hồ Sơ Hiệu Chuẩn / Kiểm Định</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Cập nhật thông tin kỹ thuật, kinh phí, đơn vị kiểm định, kết quả</p>
+              </div>
+              <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Trang thiết bị y tế (*)</label>
+                <select
+                  required
+                  value={editData.assetId}
+                  onChange={e => setEditData({ ...editData, assetId: e.target.value })}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                >
+                  <option value="">-- Chọn thiết bị trong danh mục Khoa Dược --</option>
+                  {medicalAssets.map(a => (
+                    <option key={a.id} value={a.id}>
+                      [{a.assetCode}] {a.name} ({a.department?.name || 'CDC'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Loại hình dịch vụ (*)</label>
+                  <select
+                    value={editData.serviceType}
+                    onChange={e => setEditData({ ...editData, serviceType: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-bold text-blue-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="HIEU_CHUAN">Hiệu chuẩn thiết bị đo lường</option>
+                    <option value="THU_NGHIEM">Thử nghiệm an toàn sinh học</option>
+                    <option value="KIEM_DINH">Kiểm định an toàn TBYT</option>
+                    <option value="KIEM_XA">Kiểm xạ thiết bị X-quang</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Bộ phận sử dụng cụ thể</label>
+                  <input
+                    type="text"
+                    placeholder="HIV-CS1, Virus-CS1, HL-CS2..."
+                    value={editData.departmentLocation}
+                    onChange={e => setEditData({ ...editData, departmentLocation: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Đơn vị thực hiện (*)</label>
+                  <input
+                    type="text"
+                    required
+                    value={editData.vendor}
+                    onChange={e => setEditData({ ...editData, vendor: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Quyết định phê duyệt</label>
+                  <input
+                    type="text"
+                    value={editData.decisionNumber}
+                    onChange={e => setEditData({ ...editData, decisionNumber: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Ngày thực hiện (*)</label>
+                  <input
+                    type="date"
+                    required
+                    value={editData.calibrationDate}
+                    onChange={e => setEditData({ ...editData, calibrationDate: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Ngày hết hạn / Kế tiếp</label>
+                  <input
+                    type="date"
+                    value={editData.nextCalibrationDate}
+                    onChange={e => setEditData({ ...editData, nextCalibrationDate: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Kinh phí thực hiện (VNĐ)</label>
+                  <input
+                    type="number"
+                    value={editData.cost}
+                    onChange={e => setEditData({ ...editData, cost: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Nguồn kinh phí</label>
+                  <select
+                    value={editData.fundingSource}
+                    onChange={e => setEditData({ ...editData, fundingSource: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white outline-none"
+                  >
+                    <option value="Thu sự nghiệp">Thu sự nghiệp</option>
+                    <option value="Ngân sách nhà nước">Ngân sách nhà nước</option>
+                    <option value="Dịch vụ y tế">Dịch vụ y tế</option>
+                    <option value="Nguồn viện trợ / Khác">Nguồn viện trợ / Khác</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Cán bộ thực hiện</label>
+                  <input
+                    type="text"
+                    value={editData.performedBy}
+                    onChange={e => setEditData({ ...editData, performedBy: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Người nghiệm thu (*)</label>
+                  <input
+                    type="text"
+                    required
+                    value={editData.acceptanceMembers}
+                    onChange={e => setEditData({ ...editData, acceptanceMembers: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Kết quả đánh giá</label>
+                  <select
+                    value={editData.result}
+                    onChange={e => setEditData({ ...editData, result: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-bold outline-none"
+                  >
+                    <option value="PASS">PASS - Đạt chuẩn ISO / Tốt</option>
+                    <option value="FAIL">FAIL - Không đạt chuẩn / Cần sửa</option>
+                    <option value="CONDITIONAL">CONDITIONAL - Đạt có điều kiện</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Đánh giá hoạt động sau HC</label>
+                  <input
+                    type="text"
+                    value={editData.deviceStatusAfter}
+                    onChange={e => setEditData({ ...editData, deviceStatusAfter: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-emerald-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Ghi chú</label>
+                <textarea
+                  rows={2}
+                  value={editData.note}
+                  onChange={e => setEditData({ ...editData, note: e.target.value })}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Cập Nhật Hồ Sơ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 8. MODAL XUẤT EXCEL HỒ SƠ HIỆU CHUẨN CÓ SẮP XẾP CHỈ ĐỊNH                   */}
+      {/* ========================================================================= */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Xuất Danh Sách Hiệu Chuẩn TBYT</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Tùy chọn sắp xếp theo danh mục chỉ định & thứ tự</p>
+              </div>
+              <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1.5">Sắp xếp danh sách theo</label>
+                <select
+                  value={exportSortBy}
+                  onChange={e => setExportSortBy(e.target.value)}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl font-semibold bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="fundingSource">💰 Nguồn kinh phí (Thu sự nghiệp, Ngân sách, Dịch vụ y tế...)</option>
+                  <option value="result">📌 Kết quả đánh giá / Tình trạng (Đạt chuẩn, Không đạt...)</option>
+                  <option value="serviceType">🔬 Loại hình dịch vụ (Hiệu chuẩn, Thử nghiệm, Kiểm định, Kiểm xạ)</option>
+                  <option value="decisionNumber">📜 Số quyết định phê duyệt (QĐ số 34...)</option>
+                  <option value="location">🏛️ Bộ phận / Khoa phòng sử dụng (HIV, Virus, Hóa lý...)</option>
+                  <option value="date">📅 Ngày thực hiện</option>
+                  <option value="nextDate">⏳ Hạn hiệu chuẩn kế tiếp</option>
+                  <option value="cost">💵 Kinh phí thực hiện</option>
+                  <option value="assetCode">🏷️ Mã thiết bị y tế (TBYT Code)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1.5">Thứ tự hiển thị</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExportSortOrder('asc')}
+                    className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition ${
+                      exportSortOrder === 'asc'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Tăng dần (A ➔ Z / Cũ ➔ Mới)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportSortOrder('desc')}
+                    className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition ${
+                      exportSortOrder === 'desc'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Giảm dần (Z ➔ A / Mới ➔ Cũ)
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-emerald-50 rounded-xl text-emerald-800 text-[11px]">
+                <p>💡 File Excel xuất ra sẽ được định dạng chuẩn Khoa Dược CDC Đà Nẵng, có kẻ bảng, tổng hợp kinh phí bằng công thức SUM và sẵn 3 khối chữ ký (Người lập, Trưởng Khoa Dược, Ban Giám Đốc).</p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowExportModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" /> Tải File Excel
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

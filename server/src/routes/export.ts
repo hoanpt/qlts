@@ -567,5 +567,453 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
   }
 });
 
+// 3. Xuất danh sách Báo hỏng, Sửa chữa & Bảo trì (Excel chuẩn CDC Đà Nẵng có sắp xếp theo chỉ định)
+router.get('/maintenance', requireAuth, async (req: any, res) => {
+  try {
+    const { departmentId, managingUnit, status, priority, sortBy = 'date', sortOrder = 'desc' } = req.query;
+    const where: any = {};
+
+    if (departmentId && departmentId !== 'ALL') {
+      where.departmentId = parseInt(departmentId as string);
+    } else if (req.user.role === 'DEPARTMENT' && req.user.departmentId) {
+      where.departmentId = req.user.departmentId;
+    }
+
+    if (status && status !== 'ALL') where.status = status;
+    if (priority && priority !== 'ALL') where.priority = priority;
+
+    let enforcedUnit = managingUnit;
+    if (req.user) {
+      if (req.user.role === 'MANAGER_CNTT') enforcedUnit = 'CNTT';
+      else if (req.user.role === 'MANAGER_DUOC') enforcedUnit = 'DUOC';
+      else if (req.user.role === 'MANAGER_TCHC') enforcedUnit = 'TCHC';
+    }
+
+    let records = await prisma.maintenanceRequest.findMany({
+      where,
+      include: {
+        asset: { include: { category: true, department: true } },
+        department: true
+      },
+      orderBy: { requestDate: 'desc' }
+    });
+
+    if (enforcedUnit && enforcedUnit !== 'ALL') {
+      records = records.filter(r => (r as any).managingUnit === enforcedUnit || (r.asset as any)?.managingUnit === enforcedUnit);
+    }
+
+    // Dynamic sorting by user-specified criteria
+    const isAsc = sortOrder === 'asc';
+    records.sort((a: any, b: any) => {
+      let comparison = 0;
+      if (sortBy === 'fundingSource') {
+        const valA = ((a as any).fundingSource || '').trim();
+        const valB = ((b as any).fundingSource || '').trim();
+        comparison = valA.localeCompare(valB, 'vi');
+      } else if (sortBy === 'status') {
+        comparison = (a.status || '').localeCompare(b.status || '');
+      } else if (sortBy === 'managingUnit') {
+        const uA = (a as any).managingUnit || (a.asset as any)?.managingUnit || '';
+        const uB = (b as any).managingUnit || (b.asset as any)?.managingUnit || '';
+        comparison = uA.localeCompare(uB);
+      } else if (sortBy === 'department') {
+        const dA = a.department?.name || '';
+        const dB = b.department?.name || '';
+        comparison = dA.localeCompare(dB, 'vi');
+      } else if (sortBy === 'priority') {
+        comparison = (a.priority || '').localeCompare(b.priority || '');
+      } else if (sortBy === 'assetCode') {
+        const cA = a.asset?.assetCode || '';
+        const cB = b.asset?.assetCode || '';
+        comparison = cA.localeCompare(cB, undefined, { numeric: true, sensitivity: 'base' });
+      } else if (sortBy === 'cost') {
+        comparison = (a.repairCost || 0) - (b.repairCost || 0);
+      } else {
+        comparison = new Date(a.requestDate).getTime() - new Date(b.requestDate).getTime();
+      }
+      return isAsc ? comparison : -comparison;
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('SuaChua_BaoTri', {
+      views: [{ showGridLines: true }]
+    });
+
+    sheet.pageSetup = {
+      orientation: 'landscape',
+      paperSize: 9,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 }
+    };
+
+    // Header
+    const r1 = sheet.addRow(['TRUNG TÂM KIỂM SOÁT BỆNH TẬT THÀNH PHỐ ĐÀ NẴNG', '', '', '', '', '', '', '', '', '', '', '', 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM']);
+    r1.font = { name: 'Times New Roman', size: 10, bold: true };
+    sheet.mergeCells('A1:F1');
+    sheet.mergeCells('G1:M1');
+    r1.getCell(7).alignment = { horizontal: 'center' };
+
+    const r2 = sheet.addRow(['BỘ PHẬN KỸ THUẬT & QUẢN LÝ TÀI SẢN', '', '', '', '', '', '', '', '', '', '', '', 'Độc lập - Tự do - Hạnh phúc']);
+    r2.font = { name: 'Times New Roman', size: 10, italic: true };
+    sheet.mergeCells('A2:F2');
+    sheet.mergeCells('G2:M2');
+    r2.getCell(7).alignment = { horizontal: 'center' };
+
+    sheet.addRow([]);
+
+    const titleRow = sheet.addRow(['DANH SÁCH THEO DÕI BÁO HỎNG, BẢO TRÌ & SỬA CHỮA TRANG THIẾT BỊ NĂM 2026']);
+    titleRow.font = { name: 'Times New Roman', size: 13, bold: true };
+    titleRow.alignment = { horizontal: 'center' };
+    sheet.mergeCells(`A${titleRow.number}:M${titleRow.number}`);
+
+    const subTitleRow = sheet.addRow([`Thời điểm xuất: ${new Date().toLocaleDateString('vi-VN')} | Tổng số hồ sơ: ${records.length}`]);
+    subTitleRow.font = { name: 'Times New Roman', size: 10, italic: true };
+    subTitleRow.alignment = { horizontal: 'center' };
+    sheet.mergeCells(`A${subTitleRow.number}:M${subTitleRow.number}`);
+
+    sheet.addRow([]);
+
+    // Table Header
+    const headerRow = sheet.addRow([
+      'STT', 'Mã thiết bị', 'Tên trang thiết bị', 'Khoa / Phòng sử dụng', 'Khối quản lý',
+      'Ngày báo hỏng', 'Người đề nghị', 'Mô tả sự cố hư hỏng', 'Cán bộ kỹ thuật / Tiếp nhận',
+      'Đơn vị sửa chữa', 'Kinh phí (VNĐ)', 'Nguồn kinh phí', 'Trạng thái'
+    ]);
+    headerRow.height = 28;
+    headerRow.font = { name: 'Times New Roman', size: 10, bold: true };
+    headerRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    headerRow.eachCell(c => {
+      c.border = THIN_BORDER;
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+    });
+
+    sheet.columns = [
+      { key: 'stt', width: 6 },
+      { key: 'code', width: 14 },
+      { key: 'name', width: 28 },
+      { key: 'dept', width: 22 },
+      { key: 'unit', width: 14 },
+      { key: 'date', width: 13 },
+      { key: 'requester', width: 18 },
+      { key: 'issue', width: 32 },
+      { key: 'tech', width: 18 },
+      { key: 'vendor', width: 22 },
+      { key: 'cost', width: 16 },
+      { key: 'source', width: 20 },
+      { key: 'status', width: 15 }
+    ];
+
+    const dataStart = headerRow.number + 1;
+    let currentRow = dataStart;
+
+    records.forEach((r, idx) => {
+      const u = (r as any).managingUnit || (r.asset as any)?.managingUnit || 'CNTT';
+      const uLabel = u === 'DUOC' ? 'Khoa Dược (TBYT)' : u === 'CNTT' ? 'Tổ CNTT' : 'Phòng TCHC';
+      const statusLabel = r.status === 'COMPLETED' ? 'Đã hoàn thành' :
+                          r.status === 'IN_PROGRESS' ? 'Đang xử lý' :
+                          r.status === 'REJECTED' ? 'Từ chối' : 'Chờ tiếp nhận';
+
+      const row = sheet.addRow([
+        idx + 1,
+        r.asset?.assetCode || '',
+        r.asset?.name || '',
+        r.department?.name || r.asset?.department?.name || '',
+        uLabel,
+        r.requestDate ? new Date(r.requestDate).toLocaleDateString('vi-VN') : '',
+        r.requestedBy || '',
+        r.issueDescription || '',
+        r.technicianName || '',
+        r.repairVendor || '',
+        r.repairCost || 0,
+        (r as any).fundingSource || 'Nguồn ngân sách',
+        statusLabel
+      ]);
+
+      row.font = { name: 'Times New Roman', size: 10 };
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(2).alignment = { horizontal: 'center' };
+      row.getCell(6).alignment = { horizontal: 'center' };
+      row.getCell(11).alignment = { horizontal: 'right' };
+      row.getCell(11).numFmt = '#,##0';
+      row.getCell(13).alignment = { horizontal: 'center' };
+
+      row.eachCell(c => { c.border = THIN_BORDER; });
+      currentRow++;
+    });
+
+    // Total row
+    const totalRow = sheet.addRow([
+      'Tổng cộng', '', '', '', '', '', '', '', '', '',
+      { formula: `SUM(K${dataStart}:K${currentRow - 1})` },
+      '', ''
+    ]);
+    totalRow.font = { name: 'Times New Roman', size: 11, bold: true };
+    sheet.mergeCells(`A${totalRow.number}:J${totalRow.number}`);
+    totalRow.getCell(1).alignment = { horizontal: 'center' };
+    totalRow.getCell(11).numFmt = '#,##0';
+    totalRow.getCell(11).alignment = { horizontal: 'right' };
+    totalRow.eachCell(c => { c.border = DOUBLE_BOTTOM_BORDER; });
+
+    // Signature Block
+    sheet.addRow([]);
+    sheet.addRow([]);
+
+    const sigDateRow = sheet.addRow(['', '', '', '', '', '', '', '', '', '', 'Đà Nẵng, ngày      tháng      năm 2026', '', '']);
+    sigDateRow.font = { name: 'Times New Roman', size: 10, italic: true };
+    sheet.mergeCells(`K${sigDateRow.number}:M${sigDateRow.number}`);
+    sigDateRow.getCell(11).alignment = { horizontal: 'center' };
+
+    const sigTitleRow = sheet.addRow([
+      'NGƯỜI LẬP BIỂU', '', '', '',
+      'PHỤ TRÁCH ĐƠN VỊ KỸ THUẬT', '', '', '',
+      'BAN GIÁM ĐỐC', '', '', '', ''
+    ]);
+    sigTitleRow.font = { name: 'Times New Roman', size: 10, bold: true };
+    sheet.mergeCells(`A${sigTitleRow.number}:D${sigTitleRow.number}`);
+    sheet.mergeCells(`E${sigTitleRow.number}:H${sigTitleRow.number}`);
+    sheet.mergeCells(`I${sigTitleRow.number}:M${sigTitleRow.number}`);
+    sigTitleRow.eachCell(c => { c.alignment = { horizontal: 'center' }; });
+
+    const sigNoteRow = sheet.addRow([
+      '(Ký, ghi rõ họ tên)', '', '', '',
+      '(Ký, ghi rõ họ tên)', '', '', '',
+      '(Ký, ghi rõ họ tên, đóng dấu)', '', '', '', ''
+    ]);
+    sigNoteRow.font = { name: 'Times New Roman', size: 9, italic: true };
+    sheet.mergeCells(`A${sigNoteRow.number}:D${sigNoteRow.number}`);
+    sheet.mergeCells(`E${sigNoteRow.number}:H${sigNoteRow.number}`);
+    sheet.mergeCells(`I${sigNoteRow.number}:M${sigNoteRow.number}`);
+    sigNoteRow.eachCell(c => { c.alignment = { horizontal: 'center' }; });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=DanhSach_SuaChua_BaoTri_${sortBy}_2026.xlsx`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Export Maintenance error:', error);
+    res.status(500).json({ error: 'Error exporting maintenance Excel sheet' });
+  }
+});
+
+// 4. Xuất danh sách Hiệu chuẩn, Thử nghiệm, Kiểm định TBYT (Excel chuẩn CDC Đà Nẵng có sắp xếp theo chỉ định)
+router.get('/calibrations', requireAuth, async (req: any, res) => {
+  try {
+    const { serviceType, result, location, sortBy = 'date', sortOrder = 'asc' } = req.query;
+    const where: any = {};
+
+    if (result && result !== 'ALL') where.result = result;
+    if (serviceType && serviceType !== 'ALL') where.serviceType = serviceType;
+
+    let records = await prisma.calibrationRecord.findMany({
+      where,
+      include: {
+        asset: {
+          include: { department: true, category: true }
+        }
+      },
+      orderBy: { calibrationDate: 'desc' }
+    });
+
+    if (location && location !== 'ALL') {
+      records = records.filter(r => (r as any).departmentLocation?.includes(location as string));
+    }
+
+    // Dynamic sorting by user-specified criteria
+    const isAsc = sortOrder === 'asc';
+    records.sort((a: any, b: any) => {
+      let comparison = 0;
+      if (sortBy === 'fundingSource') {
+        comparison = ((a as any).fundingSource || '').localeCompare((b as any).fundingSource || '', 'vi');
+      } else if (sortBy === 'result') {
+        comparison = (a.result || '').localeCompare(b.result || '');
+      } else if (sortBy === 'serviceType') {
+        comparison = (a.serviceType || '').localeCompare(b.serviceType || '');
+      } else if (sortBy === 'decisionNumber') {
+        comparison = ((a as any).decisionNumber || '').localeCompare((b as any).decisionNumber || '');
+      } else if (sortBy === 'location') {
+        const lA = (a as any).departmentLocation || a.asset?.department?.name || '';
+        const lB = (b as any).departmentLocation || b.asset?.department?.name || '';
+        comparison = lA.localeCompare(lB, 'vi');
+      } else if (sortBy === 'assetCode') {
+        const cA = a.asset?.assetCode || '';
+        const cB = b.asset?.assetCode || '';
+        comparison = cA.localeCompare(cB, undefined, { numeric: true, sensitivity: 'base' });
+      } else if (sortBy === 'nextDate') {
+        const tA = a.nextCalibrationDate ? new Date(a.nextCalibrationDate).getTime() : 0;
+        const tB = b.nextCalibrationDate ? new Date(b.nextCalibrationDate).getTime() : 0;
+        comparison = tA - tB;
+      } else if (sortBy === 'cost') {
+        comparison = ((a as any).cost || 0) - ((b as any).cost || 0);
+      } else {
+        comparison = new Date(a.calibrationDate).getTime() - new Date(b.calibrationDate).getTime();
+      }
+      return isAsc ? comparison : -comparison;
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('HieuChuan_TBYT', {
+      views: [{ showGridLines: true }]
+    });
+
+    sheet.pageSetup = {
+      orientation: 'landscape',
+      paperSize: 9,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 }
+    };
+
+    // Header
+    const r1 = sheet.addRow(['TRUNG TÂM KIỂM SOÁT BỆNH TẬT THÀNH PHỐ ĐÀ NẴNG', '', '', '', '', '', '', '', '', '', '', '', 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM']);
+    r1.font = { name: 'Times New Roman', size: 10, bold: true };
+    sheet.mergeCells('A1:F1');
+    sheet.mergeCells('G1:M1');
+    r1.getCell(7).alignment = { horizontal: 'center' };
+
+    const r2 = sheet.addRow(['KHOA DƯỢC - VẬT TƯ Y TẾ', '', '', '', '', '', '', '', '', '', '', '', 'Độc lập - Tự do - Hạnh phúc']);
+    r2.font = { name: 'Times New Roman', size: 10, italic: true };
+    sheet.mergeCells('A2:F2');
+    sheet.mergeCells('G2:M2');
+    r2.getCell(7).alignment = { horizontal: 'center' };
+
+    sheet.addRow([]);
+
+    const titleRow = sheet.addRow(['BẢNG THEO DÕI THỜI GIAN HIỆU CHUẨN, THỬ NGHIỆM, KIỂM ĐỊNH, KIỂM XẠ MÁY MÓC, TBYT NĂM 2026']);
+    titleRow.font = { name: 'Times New Roman', size: 13, bold: true };
+    titleRow.alignment = { horizontal: 'center' };
+    sheet.mergeCells(`A${titleRow.number}:M${titleRow.number}`);
+
+    const subTitleRow = sheet.addRow(['(Theo Quyết định số 34/QĐ-TTKSBT ngày 27/01/2026 - Đánh giá tiêu chuẩn ISO 17025)']);
+    subTitleRow.font = { name: 'Times New Roman', size: 10, italic: true };
+    subTitleRow.alignment = { horizontal: 'center' };
+    sheet.mergeCells(`A${subTitleRow.number}:M${subTitleRow.number}`);
+
+    sheet.addRow([]);
+
+    // Table Header
+    const headerRow = sheet.addRow([
+      'STT', 'Mã TBYT', 'Tên thiết bị y tế', 'Bộ phận sử dụng', 'Loại hình',
+      'Đơn vị thực hiện', 'Ngày thực hiện', 'Hạn hiệu chuẩn kế tiếp', 'Kinh phí (VNĐ)',
+      'Nguồn kinh phí', 'Số quyết định', 'Tình trạng sau HC', 'Người nghiệm thu'
+    ]);
+    headerRow.height = 28;
+    headerRow.font = { name: 'Times New Roman', size: 10, bold: true };
+    headerRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    headerRow.eachCell(c => {
+      c.border = THIN_BORDER;
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+    });
+
+    sheet.columns = [
+      { key: 'stt', width: 6 },
+      { key: 'code', width: 14 },
+      { key: 'name', width: 30 },
+      { key: 'dept', width: 20 },
+      { key: 'type', width: 15 },
+      { key: 'vendor', width: 24 },
+      { key: 'date', width: 13 },
+      { key: 'nextDate', width: 14 },
+      { key: 'cost', width: 16 },
+      { key: 'source', width: 18 },
+      { key: 'decision', width: 20 },
+      { key: 'status', width: 15 },
+      { key: 'members', width: 24 }
+    ];
+
+    const dataStart = headerRow.number + 1;
+    let currentRow = dataStart;
+
+    records.forEach((r, idx) => {
+      const typeLabel = r.serviceType === 'THU_NGHIEM' ? 'Thử nghiệm' :
+                        r.serviceType === 'KIEM_DINH' ? 'Kiểm định' :
+                        r.serviceType === 'KIEM_XA' ? 'Kiểm xạ' : 'Hiệu chuẩn';
+
+      const row = sheet.addRow([
+        idx + 1,
+        r.asset?.assetCode || '',
+        r.asset?.name || '',
+        (r as any).departmentLocation || r.asset?.department?.name || '',
+        typeLabel,
+        r.vendor || 'TT SMETES',
+        r.calibrationDate ? new Date(r.calibrationDate).toLocaleDateString('vi-VN') : '',
+        r.nextCalibrationDate ? new Date(r.nextCalibrationDate).toLocaleDateString('vi-VN') : '',
+        (r as any).cost || 0,
+        (r as any).fundingSource || 'Thu sự nghiệp',
+        (r as any).decisionNumber || '',
+        (r as any).deviceStatusAfter || (r.result === 'PASS' ? 'Tốt' : 'Không đạt'),
+        (r as any).acceptanceMembers || r.performedBy || ''
+      ]);
+
+      row.font = { name: 'Times New Roman', size: 10 };
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(2).alignment = { horizontal: 'center' };
+      row.getCell(5).alignment = { horizontal: 'center' };
+      row.getCell(7).alignment = { horizontal: 'center' };
+      row.getCell(8).alignment = { horizontal: 'center' };
+      row.getCell(9).alignment = { horizontal: 'right' };
+      row.getCell(9).numFmt = '#,##0';
+      row.getCell(12).alignment = { horizontal: 'center' };
+
+      row.eachCell(c => { c.border = THIN_BORDER; });
+      currentRow++;
+    });
+
+    // Total row
+    const totalRow = sheet.addRow([
+      'Tổng cộng', '', '', '', '', '', '', '',
+      { formula: `SUM(I${dataStart}:I${currentRow - 1})` },
+      '', '', '', ''
+    ]);
+    totalRow.font = { name: 'Times New Roman', size: 11, bold: true };
+    sheet.mergeCells(`A${totalRow.number}:H${totalRow.number}`);
+    totalRow.getCell(1).alignment = { horizontal: 'center' };
+    totalRow.getCell(9).numFmt = '#,##0';
+    totalRow.getCell(9).alignment = { horizontal: 'right' };
+    totalRow.eachCell(c => { c.border = DOUBLE_BOTTOM_BORDER; });
+
+    // Signature Block
+    sheet.addRow([]);
+    sheet.addRow([]);
+
+    const sigDateRow = sheet.addRow(['', '', '', '', '', '', '', '', '', '', 'Đà Nẵng, ngày      tháng      năm 2026', '', '']);
+    sigDateRow.font = { name: 'Times New Roman', size: 10, italic: true };
+    sheet.mergeCells(`K${sigDateRow.number}:M${sigDateRow.number}`);
+    sigDateRow.getCell(11).alignment = { horizontal: 'center' };
+
+    const sigTitleRow = sheet.addRow([
+      'NGƯỜI LẬP BIỂU', '', '', '',
+      'TRƯỞNG KHOA DƯỢC - VTYT', '', '', '',
+      'BAN GIÁM ĐỐC', '', '', '', ''
+    ]);
+    sigTitleRow.font = { name: 'Times New Roman', size: 10, bold: true };
+    sheet.mergeCells(`A${sigTitleRow.number}:D${sigTitleRow.number}`);
+    sheet.mergeCells(`E${sigTitleRow.number}:H${sigTitleRow.number}`);
+    sheet.mergeCells(`I${sigTitleRow.number}:M${sigTitleRow.number}`);
+    sigTitleRow.eachCell(c => { c.alignment = { horizontal: 'center' }; });
+
+    const sigNoteRow = sheet.addRow([
+      '(Ký, ghi rõ họ tên)', '', '', '',
+      '(Ký, ghi rõ họ tên)', '', '', '',
+      '(Ký, ghi rõ họ tên, đóng dấu)', '', '', '', ''
+    ]);
+    sigNoteRow.font = { name: 'Times New Roman', size: 9, italic: true };
+    sheet.mergeCells(`A${sigNoteRow.number}:D${sigNoteRow.number}`);
+    sheet.mergeCells(`E${sigNoteRow.number}:H${sigNoteRow.number}`);
+    sheet.mergeCells(`I${sigNoteRow.number}:M${sigNoteRow.number}`);
+    sigNoteRow.eachCell(c => { c.alignment = { horizontal: 'center' }; });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=BangTheoDoi_HieuChuan_TBYT_${sortBy}_2026.xlsx`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Export Calibration error:', error);
+    res.status(500).json({ error: 'Error exporting calibration Excel sheet' });
+  }
+});
+
 export default router;
 
