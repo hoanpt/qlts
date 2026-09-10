@@ -407,7 +407,12 @@ export default function Maintenance() {
 
     const statusMatch = statusFilter === 'ALL' || r.status === statusFilter;
     const priorityMatch = priorityFilter === 'ALL' || r.priority === priorityFilter;
-    const unitMatch = unitFilter === 'ALL' || (r as any).managingUnit === unitFilter || (r.asset as any)?.managingUnit === unitFilter;
+    const unitMatch = unitFilter === 'ALL' || 
+      (r as any).managingUnit === unitFilter || 
+      (r.asset as any)?.managingUnit === unitFilter ||
+      (unitFilter === 'DUOC' && r.asset?.categoryId === 1) ||
+      (unitFilter === 'CNTT' && r.asset?.categoryId === 2) ||
+      (unitFilter === 'TCHC' && (r.asset?.categoryId === 3 || r.asset?.categoryId === 4));
     const deptMatch = deptFilter === 'ALL' || r.departmentId.toString() === deptFilter;
 
     return searchMatch && statusMatch && priorityMatch && unitMatch && deptMatch;

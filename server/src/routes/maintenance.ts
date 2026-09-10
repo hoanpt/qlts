@@ -131,7 +131,13 @@ router.get('/', requireAuth, async (req: any, res) => {
 
     let filtered = requests;
     if (enforcedUnit && enforcedUnit !== 'ALL') {
-      filtered = filtered.filter(r => (r as any).managingUnit === enforcedUnit || (r.asset as any)?.managingUnit === enforcedUnit);
+      filtered = filtered.filter(r => 
+        (r as any).managingUnit === enforcedUnit || 
+        (r.asset as any)?.managingUnit === enforcedUnit ||
+        (enforcedUnit === 'DUOC' && r.asset?.categoryId === 1) ||
+        (enforcedUnit === 'CNTT' && r.asset?.categoryId === 2) ||
+        (enforcedUnit === 'TCHC' && (r.asset?.categoryId === 3 || r.asset?.categoryId === 4))
+      );
     }
 
     res.json(filtered);

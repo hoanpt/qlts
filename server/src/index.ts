@@ -17,6 +17,7 @@ import dashboardRoutes from './routes/dashboard';
 import exportRoutes from './routes/export';
 import committeeRoutes from './routes/committee';
 import userRoutes from './routes/users';
+import { syncTbytRecords } from './syncTbytData';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -576,146 +577,11 @@ async function autoMigrateAndSeed() {
       } catch {}
     }
 
-    // 4. Ensure PlannedMaintenance table exists and seed initial TBYT maintenance records from Excel
+    // 4. Resilient cross-database synchronization for TBYT Planned Maintenance and Repairs
     try {
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "PlannedMaintenance" (
-            "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            "assetId" INTEGER NOT NULL,
-            "maintenanceDate" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "nextMaintenanceDate" DATETIME,
-            "cycleMonths" INTEGER DEFAULT 6,
-            "performedBy" TEXT,
-            "vendor" TEXT,
-            "planContent" TEXT,
-            "result" TEXT NOT NULL DEFAULT 'PASS',
-            "cost" REAL DEFAULT 0,
-            "decisionNumber" TEXT,
-            "acceptanceMembers" TEXT,
-            "fundingSource" TEXT,
-            "deviceStatusAfter" TEXT DEFAULT 'Tốt',
-            "note" TEXT,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT "PlannedMaintenance_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "Asset" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
-        );
-      `);
-      await prisma.$executeRawUnsafe(`
-        CREATE INDEX IF NOT EXISTS "PlannedMaintenance_assetId_idx" ON "PlannedMaintenance"("assetId");
-      `);
-
-      const pmCount = await prisma.plannedMaintenance.count().catch(() => 0);
-      if (pmCount === 0) {
-        console.log('[Database] Seeding official TBYT planned maintenance records from tracking file...');
-        const btItems = [
-          {
-            code: 'TSXN267',
-            maintDate: new Date('2026-03-09'),
-            vendor: 'Công ty CP KHCN Đồng Tâm',
-            planContent: 'Bảo trì bảo dưỡng toàn bộ hệ thống Real - Time PCR ARIAMX',
-            result: 'PASS',
-            cost: 11340000,
-            decisionNumber: 'Quyết định số 57/QĐ-TTKSBT ngày 04/02/2026',
-            acceptanceMembers: 'Ds. Tính, Ds. Lộc, Cn. Duy, Cn. Phong',
-            fundingSource: 'Thu sự nghiệp',
-            deviceStatusAfter: 'Tốt',
-            note: ''
-          },
-          {
-            code: 'TSXN324',
-            maintDate: new Date('2026-03-24'),
-            vendor: 'Công ty TNHH UNT VN',
-            planContent: 'Bảo trì bảo dưỡng toàn bộ hệ thống Máy đếm Tế bào T-CD4 (CyFlow Counter)',
-            result: 'PASS',
-            cost: 39000000,
-            decisionNumber: 'Quyết định số 56/QĐ-TTKSBT ngày 04/02/2026',
-            acceptanceMembers: 'Ds. Tính, Ds. Lộc, Cn. Duy, Cn. Phúc',
-            fundingSource: 'Thu sự nghiệp',
-            deviceStatusAfter: 'Tốt',
-            note: ''
-          },
-          {
-            code: 'TSXN004',
-            maintDate: new Date('2026-01-13'),
-            vendor: 'Công ty TNHH Hóa chất và Vật tư KHKT Cường Thịnh',
-            planContent: 'Dịch vụ bảo trì, bảo dưỡng và nâng cấp phần mềm Hệ thống máy sắc ký khí khối phổ GC/MS',
-            result: 'FAIL',
-            cost: 0,
-            decisionNumber: 'Ko thanh toán',
-            acceptanceMembers: 'Công ty đã đến thực hiện DV',
-            fundingSource: 'Thu sự nghiệp',
-            deviceStatusAfter: 'Không hoạt động',
-            note: 'TB sử dụng từ 2006, không có linh kiện thay thế nên không thanh toán'
-          },
-          {
-            code: 'TSXN411',
-            maintDate: new Date('2026-07-01'),
-            vendor: 'Công ty TNHH dịch vụ Khoa học và Công nghệ TIC',
-            planContent: 'Dịch vụ Bảo trì toàn bộ hệ thống ký sắc lỏng hiệu năng cao HPLC/UV-VIS 2489 Waters',
-            result: 'PASS',
-            cost: 27000000,
-            decisionNumber: 'Quyết định số 394/QĐ-TTKSBT ngày 01/7/2026',
-            acceptanceMembers: 'Ds. Tính, Ds.Thành, Cn. Hải, Cn. Thu',
-            fundingSource: 'Thu sự nghiệp',
-            deviceStatusAfter: 'Tốt',
-            note: ''
-          },
-          {
-            code: 'TSKD058',
-            maintDate: new Date('2026-05-29'),
-            vendor: 'Công ty A.S.T MEDI',
-            planContent: 'Dịch vụ bảo trì, bảo dưỡng, thay thế linh kiện Hệ thống khí y tế trung tâm',
-            result: 'PASS',
-            cost: 49500000,
-            decisionNumber: 'Quyết định số 327/QĐ-TTKSBT ngày 29/5/2026',
-            acceptanceMembers: 'Ds. Tính, Ds. Thành, Cn. Huệ, Cn. Bình',
-            fundingSource: 'Quỹ PTHĐSN',
-            deviceStatusAfter: 'Tốt',
-            note: 'Linh kiện thay thế: Nhớt, bạc đạn, đầu dẫn van lọc ngõ ra khí'
-          },
-          {
-            code: 'TSKD059',
-            maintDate: new Date('2026-08-17'),
-            vendor: 'Công ty XL nước Gia Hưng Phát DTH',
-            planContent: 'Dịch vụ bảo trì, bảo dưỡng, thay thế linh kiện, VT Hệ thống lọc nước RO 250L/h',
-            result: 'PASS',
-            cost: 20304000,
-            decisionNumber: 'Quyết định số 429/QĐ-TTKSBT ngày 21/7/2026',
-            acceptanceMembers: 'Ds. Tính, Ds. Lộc, Cn. Duy, Cn. Nghĩa',
-            fundingSource: 'Quỹ PTHĐSN',
-            deviceStatusAfter: 'Tốt',
-            note: 'Thay bộ đo hiển thị TDS; Thay bóng đèn UV; Thay lõi lọc tinh 5 micron; Thay lõi lọc sát khuẩn 0.2 micron'
-          }
-        ];
-
-        for (const item of btItems) {
-          const asset = await prisma.asset.findFirst({ where: { assetCode: item.code } });
-          if (asset) {
-            const nextDate = new Date(item.maintDate);
-            nextDate.setMonth(nextDate.getMonth() + 6);
-            await prisma.plannedMaintenance.create({
-              data: {
-                assetId: asset.id,
-                maintenanceDate: item.maintDate,
-                nextMaintenanceDate: nextDate,
-                cycleMonths: 6,
-                performedBy: item.acceptanceMembers?.split(',')[0]?.trim() || 'Tổ Kỹ thuật',
-                vendor: item.vendor,
-                planContent: item.planContent,
-                result: item.result,
-                cost: item.cost,
-                decisionNumber: item.decisionNumber,
-                acceptanceMembers: item.acceptanceMembers,
-                fundingSource: item.fundingSource,
-                deviceStatusAfter: item.deviceStatusAfter,
-                note: item.note
-              }
-            });
-          }
-        }
-      }
-    } catch (pmErr) {
-      console.warn('[Database] Planned maintenance init warning:', pmErr);
+      await syncTbytRecords(prisma);
+    } catch (syncErr: any) {
+      console.error('[Database] Error in syncTbytRecords:', syncErr);
     }
 
     console.log('[Database] Auto-migration and user synchronization verified.');

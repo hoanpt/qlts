@@ -305,7 +305,19 @@ export default function PlannedMaintenance() {
       // Dropdown filters
       if (resultFilter !== 'ALL' && r.result !== resultFilter) return false;
       if (deptFilter !== 'ALL' && r.asset?.departmentId?.toString() !== deptFilter) return false;
-      if (unitFilter !== 'ALL' && (r.asset as any)?.managingUnit !== unitFilter) return false;
+      if (unitFilter !== 'ALL') {
+        const assetUnit = (r.asset as any)?.managingUnit;
+        const assetCatId = r.asset?.categoryId;
+        if (unitFilter === 'DUOC') {
+          if (assetUnit !== 'DUOC' && assetCatId !== 1) return false;
+        } else if (unitFilter === 'CNTT') {
+          if (assetUnit !== 'CNTT' && assetCatId !== 2) return false;
+        } else if (unitFilter === 'TCHC') {
+          if (assetUnit !== 'TCHC' && assetCatId !== 3 && assetCatId !== 4) return false;
+        } else if (assetUnit !== unitFilter) {
+          return false;
+        }
+      }
 
       // Text search
       if (search.trim()) {

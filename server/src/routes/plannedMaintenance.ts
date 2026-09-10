@@ -17,7 +17,12 @@ router.get('/stats/summary', requireAuth, async (req: any, res) => {
     if (isDept) {
       where.asset = { departmentId: req.user.departmentId };
     } else if (managingUnit) {
-      where.asset = { managingUnit };
+      where.asset = {
+        OR: [
+          { managingUnit },
+          ...(managingUnit === 'DUOC' ? [{ categoryId: 1 }] : [])
+        ]
+      };
     }
 
     const records = await prisma.plannedMaintenance.findMany({
@@ -88,7 +93,13 @@ router.get('/', requireAuth, async (req: any, res) => {
     where.asset = { ...(where.asset || {}), departmentId: parseInt(departmentId as string) };
   }
   if (enforcedUnit && enforcedUnit !== 'ALL') {
-    where.asset = { ...(where.asset || {}), managingUnit: enforcedUnit as string };
+    where.asset = {
+      ...(where.asset || {}),
+      OR: [
+        { managingUnit: enforcedUnit as string },
+        ...(enforcedUnit === 'DUOC' ? [{ categoryId: 1 }] : [])
+      ]
+    };
   }
 
   try {
