@@ -510,9 +510,61 @@ export const SC_DATA = [
   }
 ];
 
+export async function fixPostgresSequences(prisma: PrismaClient) {
+  const isPg = (process.env.DATABASE_URL || '').toLowerCase().includes('postgres');
+  if (!isPg) return;
+
+  console.log('[PostgreSQL] Resetting table primary key sequences to MAX(id)...');
+  const tables = [
+    'Asset',
+    'MaintenanceRequest',
+    'PlannedMaintenance',
+    'CalibrationRecord',
+    'Department',
+    'User',
+    'AssetCategory',
+    'AssetTransfer',
+    'InventorySession',
+    'InventoryRecord',
+    'Disposal',
+    'DisposalCampaign'
+  ];
+
+  for (const table of tables) {
+    try {
+      await prisma.$executeRawUnsafe(`
+        DO $$
+        DECLARE
+          seq_name TEXT;
+          max_id BIGINT;
+        BEGIN
+          seq_name := pg_get_serial_sequence('"${table}"', 'id');
+          IF seq_name IS NOT NULL THEN
+            EXECUTE 'SELECT COALESCE(MAX(id), 0) FROM "' || '${table}' || '"' INTO max_id;
+            IF max_id > 0 THEN
+              PERFORM setval(seq_name, max_id, true);
+            END IF;
+          END IF;
+        END $$;
+      `);
+    } catch (err: any) {
+      console.warn(`[PostgreSQL] Notice resetting sequence for ${table}:`, err.message);
+    }
+  }
+}
+
 export async function syncTbytRecords(prisma: PrismaClient) {
   console.log('[TBYT Sync] Starting resilient cross-database TBYT synchronization...');
   const isPg = (process.env.DATABASE_URL || '').toLowerCase().includes('postgres');
+
+  // Fix PostgreSQL sequence desynchronization first (prevents "Unique constraint failed on id")
+  if (isPg) {
+    try {
+      await fixPostgresSequences(prisma);
+    } catch (seqErr: any) {
+      console.warn('[TBYT Sync] Sequence reset warning:', seqErr.message);
+    }
+  }
 
   // 1. Safe creation of PlannedMaintenance table
   try {
@@ -608,30 +660,42 @@ export async function syncTbytRecords(prisma: PrismaClient) {
       }
     }
 
-    // If still not found, create new asset
+    // If still not found, create new asset with dual-strategy (sequence or explicit safe ID)
     if (!asset) {
-      asset = await prisma.asset.create({
-        data: {
-          assetCode: item.code,
-          name: item.name,
-          categoryId: 1,
-          departmentId: item.deptId,
-          location: item.deptId === 13 ? 'Cơ sở 2' : 'Cơ sở 1',
-          locationDetail: 'Khoa Dược / Thiết bị y tế',
-          yearInUse: item.year,
-          originalPrice: 50000000,
-          currentValue: 25000000,
-          depreciationRate: 10,
-          status: 'DANG_SU_DUNG',
-          managingUnit: 'DUOC',
-          bookQuantity: 1,
-          actualQuantity: 1,
-          quantityDifference: 0,
-          source: 'Ngân sách nhà nước',
-          fundingSource: 'Thu sự nghiệp',
-          qrCode: `QR-TBYT-${item.code}`
-        }
-      });
+      const assetData = {
+        assetCode: item.code,
+        name: item.name,
+        categoryId: 1,
+        departmentId: item.deptId,
+        location: item.deptId === 13 ? 'Cơ sở 2' : 'Cơ sở 1',
+        locationDetail: 'Khoa Dược / Thiết bị y tế',
+        yearInUse: item.year,
+        originalPrice: 50000000,
+        currentValue: 25000000,
+        depreciationRate: 10,
+        status: 'DANG_SU_DUNG',
+        managingUnit: 'DUOC',
+        bookQuantity: 1,
+        actualQuantity: 1,
+        quantityDifference: 0,
+        source: 'Ngân sách nhà nước',
+        fundingSource: 'Thu sự nghiệp',
+        qrCode: `QR-TBYT-${item.code}`
+      };
+
+      try {
+        asset = await prisma.asset.create({ data: assetData });
+      } catch (createErr: any) {
+        console.warn(`[TBYT Sync] Standard create failed for ${item.code} (${createErr.message}), assigning explicit safe ID...`);
+        const maxAsset = await prisma.asset.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
+        const safeId = (maxAsset?.id || 15000) + 1;
+        asset = await prisma.asset.create({
+          data: {
+            id: safeId,
+            ...assetData
+          }
+        });
+      }
     } else {
       // Make sure categoryId = 1 and managingUnit = DUOC
       if (asset.categoryId !== 1 || asset.managingUnit !== 'DUOC' || asset.departmentId !== item.deptId) {
@@ -718,9 +782,21 @@ export async function syncTbytRecords(prisma: PrismaClient) {
         data: reqData
       });
     } else {
-      await prisma.maintenanceRequest.create({
-        data: reqData
-      });
+      try {
+        await prisma.maintenanceRequest.create({
+          data: reqData
+        });
+      } catch (reqErr: any) {
+        console.warn(`[TBYT Sync] Standard maintenance create failed (${reqErr.message}), assigning explicit safe ID...`);
+        const maxReq = await prisma.maintenanceRequest.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
+        const safeReqId = (maxReq?.id || 100) + 1;
+        await prisma.maintenanceRequest.create({
+          data: {
+            id: safeReqId,
+            ...reqData
+          }
+        });
+      }
     }
   }
 
@@ -773,9 +849,21 @@ export async function syncTbytRecords(prisma: PrismaClient) {
         data: pmData
       });
     } else {
-      await prisma.plannedMaintenance.create({
-        data: pmData
-      });
+      try {
+        await prisma.plannedMaintenance.create({
+          data: pmData
+        });
+      } catch (pmErr: any) {
+        console.warn(`[TBYT Sync] Standard planned maint create failed (${pmErr.message}), assigning explicit safe ID...`);
+        const maxPm = await prisma.plannedMaintenance.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
+        const safePmId = (maxPm?.id || 100) + 1;
+        await prisma.plannedMaintenance.create({
+          data: {
+            id: safePmId,
+            ...pmData
+          }
+        });
+      }
     }
   }
 
@@ -785,6 +873,13 @@ export async function syncTbytRecords(prisma: PrismaClient) {
     if (!validBtAssetIds.has(pm.assetId)) {
       await prisma.plannedMaintenance.delete({ where: { id: pm.id } }).catch(() => {});
     }
+  }
+
+  // Final sequence reset so future records created by users on the web work seamlessly
+  if (isPg) {
+    try {
+      await fixPostgresSequences(prisma);
+    } catch {}
   }
 
   const finalPmCount = await prisma.plannedMaintenance.count().catch(() => 0);

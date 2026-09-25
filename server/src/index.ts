@@ -17,7 +17,7 @@ import dashboardRoutes from './routes/dashboard';
 import exportRoutes from './routes/export';
 import committeeRoutes from './routes/committee';
 import userRoutes from './routes/users';
-import { syncTbytRecords } from './syncTbytData';
+import { syncTbytRecords, fixPostgresSequences } from './syncTbytData';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -146,6 +146,80 @@ app.get('/api/admin/db-status', async (req, res) => {
   }
 });
 
+// Admin: Test Telegram configuration — GET or POST /api/admin/test-telegram
+app.all('/api/admin/test-telegram', async (req, res) => {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  const maskedToken = token ? `${token.substring(0, 10)}...${token.substring(token.length - 4)}` : null;
+
+  if (!token || !chatId) {
+    return res.status(400).json({
+      ok: false,
+      status: 'MISSING_ENV_VARS',
+      message: 'Chưa cấu hình đầy đủ biến môi trường trên Coolify.',
+      envStatus: {
+        TELEGRAM_BOT_TOKEN: token ? `Đã cấu hình (${maskedToken})` : 'CHƯA CẤU HÌNH (trống)',
+        TELEGRAM_CHAT_ID: chatId ? `Đã cấu hình (${chatId})` : 'CHƯA CẤU HÌNH (trống)'
+      },
+      guide: [
+        '1. Truy cập trang quản trị ứng dụng trên Coolify -> Environment Variables',
+        '2. Thêm TELEGRAM_BOT_TOKEN = <token từ BotFather>',
+        '3. Thêm TELEGRAM_CHAT_ID = <chat ID của group telegram>',
+        '4. Lưu và Redeploy lại ứng dụng'
+      ]
+    });
+  }
+
+  try {
+    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    const nowStr = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const testText = [
+      `🔔 <b>QLTS CDC ĐÀ NẴNG - TEST KẾT NỐI</b>`,
+      `━━━━━━━━━━━━━━━━━━━━`,
+      `✅ Kết nối Bot Telegram thành công!`,
+      `🕐 Thời gian: ${nowStr}`,
+      `📌 Từ nay các yêu cầu báo hỏng thiết bị y tế / CNTT sẽ tự động gửi thông báo về nhóm này.`
+    ].join('\n');
+
+    const tgRes = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: testText,
+        parse_mode: 'HTML'
+      })
+    });
+
+    const tgData: any = await tgRes.json();
+
+    if (!tgRes.ok || !tgData.ok) {
+      return res.status(400).json({
+        ok: false,
+        status: 'TELEGRAM_REJECTED',
+        message: 'Telegram API từ chối gửi tin nhắn. Vui lòng kiểm tra lại token hoặc chat_id.',
+        config: { botToken: maskedToken, chatId },
+        telegramError: tgData
+      });
+    }
+
+    res.json({
+      ok: true,
+      status: 'SUCCESS',
+      message: 'Đã gửi tin nhắn thử nghiệm thành công tới nhóm Telegram!',
+      config: { botToken: maskedToken, chatId },
+      telegramResponse: tgData
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      ok: false,
+      status: 'NETWORK_ERROR',
+      message: `Lỗi kết nối tới api.telegram.org: ${err.message}`
+    });
+  }
+});
+
 // Admin: Force TBYT sync — POST /api/admin/sync-tbyt (no auth required for emergency access)
 app.post('/api/admin/sync-tbyt', async (req, res) => {
   const logs: string[] = [];
@@ -155,6 +229,13 @@ app.post('/api/admin/sync-tbyt', async (req, res) => {
     log('[ForceSync] Starting manual TBYT sync...');
     const isPg = (process.env.DATABASE_URL || '').toLowerCase().includes('postgres');
     log(`[ForceSync] DB type: ${isPg ? 'PostgreSQL' : 'SQLite'}`);
+
+    // Step 0: Fix PostgreSQL sequence desynchronization
+    if (isPg) {
+      log('[ForceSync] Resetting PostgreSQL sequences to avoid ID unique constraint errors...');
+      await fixPostgresSequences(prisma);
+      log('[ForceSync] Sequences reset completed.');
+    }
 
     // Step 1: Direct cleanup of contaminated records (no dependency on assetMap)
     const deleted1 = await prisma.maintenanceRequest.deleteMany({
