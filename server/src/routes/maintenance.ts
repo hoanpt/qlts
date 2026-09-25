@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { requireAuth } from '../middleware/auth';
+import { sendTelegramMessage, formatMaintenanceNotification } from '../services/telegram';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -204,6 +205,31 @@ router.post('/', requireAuth, async (req: any, res) => {
       where: { id: parseInt(assetId) },
       data: { status: 'BAO_TRI' }
     });
+
+    // Gửi thông báo Telegram (bất đồng bộ, không chặn response)
+    try {
+      const [notifAsset, notifDept] = await Promise.all([
+        prisma.asset.findUnique({ where: { id: parseInt(assetId) }, include: { category: true } }),
+        prisma.department.findUnique({ where: { id: finalDeptId } })
+      ]);
+      if (notifAsset && notifDept) {
+        const message = formatMaintenanceNotification({
+          assetCode: notifAsset.assetCode,
+          assetName: notifAsset.name,
+          departmentName: notifDept.name,
+          locationDetail: locationDetail || notifAsset.locationDetail,
+          issueDescription,
+          requestedBy,
+          priority: priority || 'MEDIUM',
+          managingUnit: finalManagingUnit,
+          contactPhone: contactPhone || null,
+          requestDate: new Date()
+        });
+        sendTelegramMessage(message); // fire-and-forget
+      }
+    } catch (tgErr: any) {
+      console.error('[Telegram] Lỗi khi chuẩn bị thông báo:', tgErr.message);
+    }
 
     res.status(201).json(request);
   } catch (error) {
