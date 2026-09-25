@@ -106,6 +106,82 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Admin: DB status & diagnostic — GET /api/admin/db-status
+app.get('/api/admin/db-status', async (req, res) => {
+  try {
+    const isPg = (process.env.DATABASE_URL || '').toLowerCase().includes('postgres');
+    const assetCount = await prisma.asset.count().catch(() => -1);
+    const maintCount = await prisma.maintenanceRequest.count().catch(() => -1);
+    const calibCount = await prisma.calibrationRecord.count().catch(() => -1);
+
+    // Check PlannedMaintenance table existence
+    let pmCount = -1;
+    let pmError = null;
+    try {
+      pmCount = await prisma.plannedMaintenance.count();
+    } catch (e: any) {
+      pmError = e.message;
+    }
+
+    // Count "Bảo trì bảo dưỡng" contamination
+    const contaminated = await prisma.maintenanceRequest.count({
+      where: { issueDescription: { contains: 'Bảo trì bảo dưỡng' } }
+    }).catch(() => -1);
+
+    const duocMaint = await prisma.maintenanceRequest.count({
+      where: { managingUnit: 'DUOC' }
+    }).catch(() => -1);
+
+    res.json({
+      ok: true,
+      dbType: isPg ? 'PostgreSQL' : 'SQLite',
+      databaseUrl: (process.env.DATABASE_URL || 'NOT_SET').replace(/:\/\/.*@/, '://***@'),
+      telegramConfigured: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
+      counts: { assets: assetCount, maintenance: maintCount, calibrations: calibCount, plannedMaintenance: pmCount, contaminatedMaint: contaminated, duocMaint },
+      plannedMaintenanceError: pmError,
+      time: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Admin: Force TBYT sync — POST /api/admin/sync-tbyt (no auth required for emergency access)
+app.post('/api/admin/sync-tbyt', async (req, res) => {
+  const logs: string[] = [];
+  const log = (msg: string) => { console.log(msg); logs.push(msg); };
+
+  try {
+    log('[ForceSync] Starting manual TBYT sync...');
+    const isPg = (process.env.DATABASE_URL || '').toLowerCase().includes('postgres');
+    log(`[ForceSync] DB type: ${isPg ? 'PostgreSQL' : 'SQLite'}`);
+
+    // Step 1: Direct cleanup of contaminated records (no dependency on assetMap)
+    const deleted1 = await prisma.maintenanceRequest.deleteMany({
+      where: { issueDescription: { contains: 'Bảo trì bảo dưỡng' } }
+    }).catch((e: any) => { log(`[ForceSync] cleanup error: ${e.message}`); return { count: -1 }; });
+    log(`[ForceSync] Deleted ${deleted1.count} contaminated "Bảo trì bảo dưỡng" records`);
+
+    // Step 2: Run full syncTbytRecords
+    await syncTbytRecords(prisma);
+    log('[ForceSync] syncTbytRecords completed successfully');
+
+    // Step 3: Final counts
+    const pmCount = await prisma.plannedMaintenance.count().catch(() => -1);
+    const duocCount = await prisma.maintenanceRequest.count({ where: { managingUnit: 'DUOC' } }).catch(() => -1);
+    const contamCount = await prisma.maintenanceRequest.count({
+      where: { issueDescription: { contains: 'Bảo trì bảo dưỡng' } }
+    }).catch(() => -1);
+
+    log(`[ForceSync] Final: PlannedMaintenance=${pmCount}, DUOC_repair=${duocCount}, contaminated=${contamCount}`);
+
+    res.json({ ok: true, logs, result: { plannedMaintenance: pmCount, duocRepair: duocCount, contaminated: contamCount } });
+  } catch (err: any) {
+    log(`[ForceSync] ERROR: ${err.message}`);
+    res.status(500).json({ ok: false, error: err.message, logs });
+  }
+});
+
 // Serve frontend static assets in production if client/dist exists
 const possibleDistPaths = [
   path.join(__dirname, '../../client/dist'),
