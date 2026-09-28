@@ -23,11 +23,20 @@ import Users from './pages/Users';
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) {
+function ProtectedRoute({ 
+  children, 
+  adminOnly = false, 
+  allowedRoles 
+}: { 
+  children: React.ReactNode; 
+  adminOnly?: boolean; 
+  allowedRoles?: string[]; 
+}) {
   const { isAuthenticated, user } = useAuth();
   
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (adminOnly && user?.role !== 'ADMIN') return <Navigate to="/" replace />;
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
   
   return <>{children}</>;
 }
@@ -46,7 +55,11 @@ function AppRoutes() {
         <Route path="assets/:id/edit" element={<AssetForm />} />
         <Route path="transfers" element={<Transfers />} />
         <Route path="maintenance" element={<Maintenance />} />
-        <Route path="planned-maintenance" element={<PlannedMaintenance />} />
+        <Route path="planned-maintenance" element={
+          <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER_DUOC', 'DEPARTMENT']}>
+            <PlannedMaintenance />
+          </ProtectedRoute>
+        } />
         <Route path="inventory" element={<Inventory />} />
         <Route path="disposals" element={<Disposals />} />
         <Route path="depreciation" element={<Depreciation />} />

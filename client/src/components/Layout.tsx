@@ -102,12 +102,6 @@ export default function Layout() {
              isDeptUser ? 'Báo hỏng / Sửa chữa' : 'Báo hỏng & Sửa chữa' 
     },
     { 
-      to: '/planned-maintenance', 
-      icon: CalendarCheck, 
-      label: isDuocManager ? 'Bảo trì định kỳ TBYT' : 
-             isDeptUser ? 'Lịch bảo trì định kỳ' : 'Bảo trì theo kế hoạch' 
-    },
-    { 
       to: '/transfers', 
       icon: ArrowLeftRight, 
       label: isDeptUser ? 'Lịch sử điều chuyển' : 'Điều chuyển tài sản' 
@@ -124,6 +118,23 @@ export default function Layout() {
     },
     { to: '/qr-scanner', icon: QrCode, label: 'Quét mã QR' },
   ];
+
+  // Kế hoạch bảo trì định kỳ: Dành cho Admin, Quản lý Khoa Dược (TBYT) và các Khoa/Phòng (DEPARTMENT)
+  // Không áp dụng cho Quản lý CNTT (MANAGER_CNTT) và Quản lý TCHC (MANAGER_TCHC)
+  if (isDuocManager || isAdmin || isDeptUser) {
+    const maintIdx = navItems.findIndex(i => i.to === '/maintenance');
+    const plannedNav = {
+      to: '/planned-maintenance',
+      icon: CalendarCheck,
+      label: isDuocManager ? 'Bảo trì định kỳ TBYT' : 
+             isDeptUser ? 'Lịch bảo trì định kỳ' : 'Bảo trì theo kế hoạch'
+    };
+    if (maintIdx !== -1) {
+      navItems.splice(maintIdx + 1, 0, plannedNav);
+    } else {
+      navItems.push(plannedNav);
+    }
+  }
 
   // Only Dược and Admin have ISO 17025 Calibration module
   if (isDuocManager || isAdmin) {

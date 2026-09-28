@@ -30,7 +30,9 @@ export default function PlannedMaintenance() {
 
   // Filters
   const [search, setSearch] = useState('');
-  const [deptFilter, setDeptFilter] = useState('ALL');
+  const [deptFilter, setDeptFilter] = useState(
+    user?.role === 'DEPARTMENT' && user.departmentId ? user.departmentId.toString() : 'ALL'
+  );
   const [resultFilter, setResultFilter] = useState('ALL');
   const [unitFilter, setUnitFilter] = useState(
     user?.role === 'MANAGER_DUOC' ? 'DUOC' :
@@ -39,7 +41,9 @@ export default function PlannedMaintenance() {
   );
 
   // Cascading Selection State in Create Modal
-  const [selectedDeptForCreate, setSelectedDeptForCreate] = useState<string>('2'); // Default Khoa Xét Nghiệm (2) or user's dept
+  const [selectedDeptForCreate, setSelectedDeptForCreate] = useState<string>(
+    user?.role === 'DEPARTMENT' && user.departmentId ? user.departmentId.toString() : '2'
+  );
   const [selectedUnitForCreate, setSelectedUnitForCreate] = useState<'DUOC' | 'CNTT' | 'TCHC' | 'ALL'>('DUOC');
   const [selectedAssetIds, setSelectedAssetIds] = useState<number[]>([]);
   const [assetSearch, setAssetSearch] = useState('');
@@ -334,6 +338,20 @@ export default function PlannedMaintenance() {
       return true;
     });
   }, [records, activeTab, resultFilter, deptFilter, unitFilter, search]);
+
+  if (user && user.role !== 'ADMIN' && user.role !== 'MANAGER_DUOC' && user.role !== 'DEPARTMENT') {
+    return (
+      <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-sm max-w-lg mx-auto my-12">
+        <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <AlertTriangle className="w-7 h-7" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900">Không có quyền truy cập</h2>
+        <p className="text-sm text-slate-500 mt-2">
+          Chức năng Quản lý Kế hoạch Bảo trì định kỳ không áp dụng cho tài khoản này.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-16">

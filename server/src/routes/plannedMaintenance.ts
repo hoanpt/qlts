@@ -5,8 +5,20 @@ import { requireAuth } from '../middleware/auth';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Chức năng Kế hoạch bảo trì định kỳ: Dành cho ADMIN, Quản lý Khoa Dược (MANAGER_DUOC), và các Khoa/Phòng (DEPARTMENT)
+// Không áp dụng cho Quản lý CNTT (MANAGER_CNTT) và Quản lý TCHC (MANAGER_TCHC)
+router.use(requireAuth, (req: any, res, next) => {
+  if (req.user?.role === 'ADMIN' || req.user?.role === 'MANAGER_DUOC' || req.user?.role === 'DEPARTMENT') {
+    return next();
+  }
+  return res.status(403).json({ 
+    error: 'Forbidden', 
+    message: 'Chức năng kế hoạch bảo trì định kỳ không áp dụng cho vai trò này.' 
+  });
+});
+
 // GET /api/planned-maintenance/stats/summary - Thống kê bảo trì kế hoạch định kỳ
-router.get('/stats/summary', requireAuth, async (req: any, res) => {
+router.get('/stats/summary', async (req: any, res) => {
   try {
     const isDept = req.user?.role === 'DEPARTMENT' && req.user?.departmentId;
     const managingUnit = req.user?.role === 'MANAGER_CNTT' ? 'CNTT' :
