@@ -81,60 +81,78 @@ router.get('/', requireAuth, async (req: any, res) => {
   }
 });
 
-// Create disposal proposal(s) (submitted by Department / Khoa phòng - supports single or multiple assets)
+// Create disposal proposal(s) (submitted by Department / Khoa phòng - supports single, multiple, or detailed items list)
 router.post('/', requireAuth, async (req: any, res) => {
   try {
-    const { assetId, assetIds, reason, proposedBy, campaignName, departmentId } = req.body;
+    const { assetId, assetIds, items, reason, proposedBy, campaignName, departmentId } = req.body;
     
-    let ids: number[] = [];
-    if (Array.isArray(assetIds) && assetIds.length > 0) {
-      ids = assetIds.map((id: any) => parseInt(id)).filter((id: number) => !isNaN(id));
-    } else if (assetId && !isNaN(parseInt(assetId))) {
-      ids = [parseInt(assetId)];
+    // Chuẩn hóa danh sách các mục thanh lý
+    let proposalItems: Array<{ assetId: number; reason: string; note?: string | null }> = [];
+
+    if (Array.isArray(items) && items.length > 0) {
+      proposalItems = items.map((it: any) => ({
+        assetId: parseInt(it.assetId),
+        reason: (it.reason || reason || 'Hư hỏng không thể phục hồi, chi phí sửa chữa không hiệu quả kinh tế').trim(),
+        note: it.note ? String(it.note).trim() : null
+      })).filter(it => !isNaN(it.assetId));
+    } else {
+      let ids: number[] = [];
+      if (Array.isArray(assetIds) && assetIds.length > 0) {
+        ids = assetIds.map((id: any) => parseInt(id)).filter((id: number) => !isNaN(id));
+      } else if (assetId && !isNaN(parseInt(assetId))) {
+        ids = [parseInt(assetId)];
+      }
+      const defaultReason = reason || 'Hư hỏng không thể phục hồi, chi phí sửa chữa không hiệu quả kinh tế';
+      proposalItems = ids.map(id => ({ assetId: id, reason: defaultReason, note: null }));
     }
 
-    if (ids.length === 0) {
+    if (proposalItems.length === 0) {
       return res.status(400).json({ error: 'Vui lòng chọn ít nhất một thiết bị cần gửi đề xuất thanh lý' });
     }
 
     const proposer = proposedBy || req.user?.fullName || req.user?.username || 'Cán bộ Khoa/Phòng';
     const dept = departmentId ? parseInt(departmentId) : (req.user?.departmentId || 1);
-    const defaultReason = reason || 'Hư hỏng không thể phục hồi, chi phí sửa chữa không hiệu quả kinh tế';
     const campaign = campaignName || 'Đợt 1/2026 - Rà soát & Thanh lý tài sản đầu năm';
 
     const createdDisposals: any[] = [];
 
-    for (const id of ids) {
-      // Create disposal record
-      const disposal = await prisma.disposal.create({
-        data: {
-          assetId: id,
-          reason: defaultReason,
-          proposedBy: proposer,
-          status: 'PROPOSED',
-          proposedDate: new Date()
-        }
-      });
+    for (const item of proposalItems) {
+      const disposalData = {
+        assetId: item.assetId,
+        reason: item.reason,
+        proposedBy: proposer,
+        status: 'PROPOSED',
+        proposedDate: new Date(),
+        campaignName: campaign,
+        note: item.note || null
+      };
+
+      let disposal;
+      try {
+        disposal = await prisma.disposal.create({ data: disposalData });
+      } catch (createErr: any) {
+        console.warn(`[Disposal] Standard create failed (${createErr.message}), assigning explicit safe ID...`);
+        const maxDisp = await prisma.disposal.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
+        const safeDispId = (maxDisp?.id || 100) + 1;
+        disposal = await prisma.disposal.create({
+          data: {
+            id: safeDispId,
+            ...disposalData
+          }
+        });
+      }
 
       // Update asset status to CHO_THANH_LY
       await prisma.asset.update({
-        where: { id },
+        where: { id: item.assetId },
         data: { status: 'CHO_THANH_LY' }
-      });
-
-      // Update campaignName and departmentId
-      await prisma.$executeRaw`
-        UPDATE Disposal 
-        SET campaignName = ${campaign},
-            departmentId = ${dept}
-        WHERE id = ${disposal.id}
-      `;
+      }).catch(() => {});
 
       createdDisposals.push(disposal);
     }
 
     res.status(201).json({
-      message: `Đã gửi đề xuất thanh lý thành công cho ${createdDisposals.length} thiết bị`,
+      message: `Đã gửi bảng tổng hợp đề xuất thanh lý thành công cho ${createdDisposals.length} thiết bị`,
       count: createdDisposals.length,
       disposals: createdDisposals
     });

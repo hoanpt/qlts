@@ -48,6 +48,24 @@ export default function Disposals() {
   const [modalAssetSearch, setModalAssetSearch] = useState<string>('');
   const [modalUnitFilter, setModalUnitFilter] = useState<string>('ALL');
 
+  // Two-step proposal wizard state: Step 1 = Chọn tài sản, Step 2 = Bảng tổng hợp điền lý do từng tài sản
+  const [proposalStep, setProposalStep] = useState<1 | 2>(1);
+  const [proposalItems, setProposalItems] = useState<Array<{
+    assetId: number;
+    asset: Asset;
+    reason: string;
+    note?: string;
+  }>>([]);
+  const [quickReasonSelect, setQuickReasonSelect] = useState<string>('');
+
+  const PRESET_REASONS = [
+    'Hư hỏng nặng không thể phục hồi, chi phí sửa chữa không hiệu quả kinh tế',
+    'Thiết bị đã qua nhiều năm sử dụng, linh kiện hao mòn, chập cháy bo mạch chính',
+    'Lạc hậu công nghệ, không còn linh kiện và hóa chất tương thích chính hãng',
+    'Hỏng panel / màn hình hiển thị nứt vỡ, không lên nguồn',
+    'Hết hạn sử dụng, không còn đảm bảo an toàn kỹ thuật theo quy định y tế'
+  ];
+
   // Inspection form state
   const [inspectionData, setInspectionData] = useState({
     technicalAssessment: 'Thiết bị đã qua nhiều năm sử dụng, linh kiện hao mòn, bo mạch chính chập cháy hỏng nặng, không có linh kiện thay thế, chi phí sửa chữa không hiệu quả kinh tế.',
@@ -164,38 +182,92 @@ export default function Disposals() {
     setSelectedAssetIds(prev => prev.filter(id => !ids.has(id)));
   };
 
-  // Handle Create Proposal (Single or Multiple assets)
-  const handleCreateProposal = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Bước 1 -> Bước 2: Bấm "Tổng Hợp Đề Xuất" để lập bảng chi tiết từng tài sản
+  const handleProceedToSummary = () => {
     if (selectedAssetIds.length === 0) {
-      alert('Vui lòng tích chọn ít nhất 1 thiết bị cần gửi đề xuất thanh lý!');
+      alert('Vui lòng tích chọn ít nhất 1 tài sản để tổng hợp đề xuất thanh lý!');
       return;
     }
-    if (!proposalData.proposedBy || !proposalData.reason) {
-      alert('Vui lòng điền người lập báo cáo và lý do đề xuất thanh lý!');
+    const selectedAssets = candidateAssets.filter(a => selectedAssetIds.includes(a.id));
+    
+    setProposalItems(prev => {
+      const prevMap = new Map(prev.map(p => [p.assetId, p]));
+      return selectedAssets.map(asset => {
+        const existing = prevMap.get(asset.id);
+        return {
+          assetId: asset.id,
+          asset,
+          reason: existing?.reason || 'Hư hỏng nặng không thể phục hồi, chi phí sửa chữa không hiệu quả kinh tế',
+          note: existing?.note || ''
+        };
+      });
+    });
+
+    setProposalStep(2);
+  };
+
+  const handleUpdateItemReason = (assetId: number, reason: string) => {
+    setProposalItems(prev => prev.map(item => item.assetId === assetId ? { ...item, reason } : item));
+  };
+
+  const handleUpdateItemNote = (assetId: number, note: string) => {
+    setProposalItems(prev => prev.map(item => item.assetId === assetId ? { ...item, note } : item));
+  };
+
+  const handleRemoveProposalItem = (assetId: number) => {
+    const nextItems = proposalItems.filter(item => item.assetId !== assetId);
+    setProposalItems(nextItems);
+    setSelectedAssetIds(prev => prev.filter(id => id !== assetId));
+    if (nextItems.length === 0) {
+      setProposalStep(1);
+    }
+  };
+
+  const handleApplyQuickReasonToAll = (reasonText: string) => {
+    if (!reasonText.trim()) return;
+    setProposalItems(prev => prev.map(item => ({ ...item, reason: reasonText })));
+  };
+
+  // Bước 2: Gửi Bảng Tổng Hợp Đề Xuất lên Hội đồng
+  const handleSendSummaryProposal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (proposalItems.length === 0) {
+      alert('Danh sách tài sản đề xuất thanh lý đang trống! Vui lòng chọn tài sản.');
+      return;
+    }
+
+    const emptyReasonItem = proposalItems.find(it => !it.reason || !it.reason.trim());
+    if (emptyReasonItem) {
+      alert(`Vui lòng điền lý do thanh lý cho tài sản: [${emptyReasonItem.asset.assetCode}] ${emptyReasonItem.asset.name}`);
+      return;
+    }
+
+    if (!proposalData.proposedBy.trim()) {
+      alert('Vui lòng điền họ tên người lập bảng tổng hợp đề xuất!');
       return;
     }
 
     try {
       await apiPost('/disposals', {
-        assetIds: selectedAssetIds,
+        items: proposalItems.map(it => ({
+          assetId: it.assetId,
+          reason: it.reason.trim(),
+          note: it.note?.trim() || null
+        })),
         proposedBy: proposalData.proposedBy,
-        reason: proposalData.reason,
         campaignName: proposalData.campaignName,
         departmentId: user?.departmentId || undefined
       });
+
+      alert(`Đã gửi bảng tổng hợp đề xuất thanh lý cho ${proposalItems.length} tài sản thành công!`);
       setShowCreateProposalModal(false);
+      setProposalStep(1);
       setSelectedAssetIds([]);
+      setProposalItems([]);
       setModalAssetSearch('');
-      setProposalData({
-        proposedBy: user?.fullName || '',
-        reason: 'Thiết bị hư hỏng nặng, linh kiện hao mòn chập cháy, không thể phục hồi, chi phí sửa chữa không hiệu quả kinh tế',
-        campaignName: 'Thông báo rà soát & lập danh mục đề xuất thanh lý tài sản Đợt 1 năm 2026'
-      });
       loadData();
-      alert(`Đã gửi báo cáo đề xuất thanh lý thành công cho ${selectedAssetIds.length} thiết bị!`);
-    } catch (e: any) {
-      alert(e.message || 'Lỗi khi gửi đề xuất');
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khi gửi bảng tổng hợp đề xuất');
     }
   };
 
@@ -311,7 +383,13 @@ export default function Disposals() {
           </button>
           
           <button 
-            onClick={() => setShowCreateProposalModal(true)}
+            onClick={() => {
+              setProposalStep(1);
+              setSelectedAssetIds([]);
+              setProposalItems([]);
+              setModalAssetSearch('');
+              setShowCreateProposalModal(true);
+            }}
             className="flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow transition cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Khoa/Phòng Lập Đề Xuất
@@ -820,203 +898,413 @@ export default function Disposals() {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 1: KHOA / PHÒNG LẬP ĐỀ XUẤT THANH LÝ (CHỌN NHIỀU THIẾT BỊ)         */}
+      {/* MODAL 1: KHOA / PHÒNG LẬP ĐỀ XUẤT THANH LÝ (2 BƯỚC: CHỌN -> TỔNG HỢP)     */}
       {/* ========================================================================= */}
       {showCreateProposalModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-bold text-base text-slate-900">Khoa / Phòng Lập Báo Cáo Đề Xuất Thanh Lý</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Tích chọn một hoặc nhiều tài sản / thiết bị hư hỏng để gửi đề xuất lên Hội đồng</p>
-              </div>
-              <button onClick={() => setShowCreateProposalModal(false)} className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">✕</button>
-            </div>
-            
-            <form onSubmit={handleCreateProposal} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 uppercase mb-1">Theo Đợt / Thông báo thanh lý</label>
-                <select
-                  value={proposalData.campaignName}
-                  onChange={e => setProposalData({ ...proposalData, campaignName: e.target.value })}
-                  className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-800"
-                >
-                  {campaigns.map(c => (
-                    <option key={c.id} value={c.title}>{c.campaignCode} - {c.title}</option>
-                  ))}
-                  <option value="Đợt 1/2026 - Rà soát & Thanh lý tài sản đầu năm">Đợt 1/2026 - Rà soát & Thanh lý tài sản đầu năm</option>
-                </select>
-              </div>
-
-              {/* Multi-Select Asset Section */}
-              <div className="space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <label className="font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                    <span>Chọn danh sách tài sản / thiết bị (*):</span>
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 font-extrabold rounded-md text-[11px]">
-                      Đã chọn: {selectedAssetIds.length} thiết bị
-                    </span>
-                  </label>
-                  
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className={`bg-white rounded-3xl shadow-2xl w-full flex flex-col max-h-[92vh] border border-slate-200 transition-all duration-200 ${
+            proposalStep === 2 ? 'max-w-5xl' : 'max-w-3xl'
+          }`}>
+            {/* Modal Header with Steps Indicator */}
+            <div className="px-6 py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white flex justify-between items-center rounded-t-3xl shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/15 rounded-xl backdrop-blur-xs">
+                  <Layers className="w-5 h-5 text-white" />
+                </div>
+                <div>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={selectAllFilteredAssets}
-                      className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg transition cursor-pointer text-[11px]"
-                    >
-                      Chọn tất cả ({filteredCandidateAssets.length})
-                    </button>
-                    {selectedAssetIds.length > 0 && (
+                    <h3 className="font-bold text-base text-white">
+                      {proposalStep === 1 
+                        ? 'Bước 1: Khoa/Phòng Chọn Tài Sản Đề Xuất Thanh Lý' 
+                        : 'Bước 2: Bảng Tổng Hợp & Điền Lý Do Từng Tài Sản'}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-white/20 text-white">
+                      Bước {proposalStep}/2
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-100 mt-0.5">
+                    {proposalStep === 1 
+                      ? 'Tích chọn các tài sản hư hỏng của đơn vị, sau đó bấm "Tổng Hợp" để lập danh sách chi tiết' 
+                      : 'Người tổng hợp điền cụ thể lý do hư hỏng cho từng tài sản trước khi gửi về Hội đồng'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowCreateProposalModal(false)} 
+                className="p-1.5 hover:bg-white/20 rounded-xl transition text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* ========================================================================= */}
+            {/* BƯỚC 1: TÍCH CHỌN DANH SÁCH TÀI SẢN                                       */}
+            {/* ========================================================================= */}
+            {proposalStep === 1 && (
+              <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">Theo Đợt / Thông báo thanh lý</label>
+                  <select
+                    value={proposalData.campaignName}
+                    onChange={e => setProposalData({ ...proposalData, campaignName: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-800 text-xs"
+                  >
+                    {campaigns.map(c => (
+                      <option key={c.id} value={c.title}>{c.campaignCode} - {c.title}</option>
+                    ))}
+                    <option value="Đợt 1/2026 - Rà soát & Thanh lý tài sản đầu năm">Đợt 1/2026 - Rà soát & Thanh lý tài sản đầu năm</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase mb-1">Khoa / Phòng đề xuất</label>
+                    <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-800 flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-blue-600" />
+                      <span>{user?.fullName || departments.find(d => d.id === user?.departmentId)?.name || 'Đơn vị đề xuất'}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase mb-1">Cán bộ phụ trách tổng hợp</label>
+                    <input
+                      type="text"
+                      placeholder="Họ tên cán bộ phụ trách..."
+                      value={proposalData.proposedBy}
+                      onChange={e => setProposalData({ ...proposalData, proposedBy: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Multi-Select Asset Section */}
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label className="font-bold text-slate-700 uppercase flex items-center gap-1.5">
+                      <span>Tích chọn tài sản cần đề xuất thanh lý (*):</span>
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 font-extrabold rounded-md text-[11px]">
+                        Đã chọn: {selectedAssetIds.length} tài sản
+                      </span>
+                    </label>
+                    
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={deselectAllFilteredAssets}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg transition cursor-pointer text-[11px]"
+                        onClick={selectAllFilteredAssets}
+                        className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg transition cursor-pointer text-[11px]"
                       >
-                        Bỏ chọn
+                        Chọn tất cả ({filteredCandidateAssets.length})
                       </button>
+                      {selectedAssetIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={deselectAllFilteredAssets}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg transition cursor-pointer text-[11px]"
+                        >
+                          Bỏ chọn
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Filter and search bar inside modal */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Tìm nhanh theo mã, tên thiết bị, phòng máy..."
+                        value={modalAssetSearch}
+                        onChange={e => setModalAssetSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <select
+                      value={modalUnitFilter}
+                      onChange={e => setModalUnitFilter(e.target.value)}
+                      className="px-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="ALL">Tất cả khối</option>
+                      <option value="DUOC">🩺 Khoa Dược (TBYT)</option>
+                      <option value="CNTT">💻 Tổ CNTT</option>
+                      <option value="TCHC">🏢 Phòng TCHC</option>
+                    </select>
+                  </div>
+
+                  {/* Scrollable list of selectable assets */}
+                  <div className="border border-slate-200 rounded-2xl divide-y divide-slate-100 max-h-72 overflow-y-auto bg-slate-50/50 shadow-inner">
+                    {filteredCandidateAssets.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400">
+                        Không tìm thấy tài sản nào thuộc danh mục của đơn vị.
+                      </div>
+                    ) : (
+                      filteredCandidateAssets.map(asset => {
+                        const isSelected = selectedAssetIds.includes(asset.id);
+                        return (
+                          <div
+                            key={asset.id}
+                            onClick={() => toggleSelectAsset(asset.id)}
+                            className={`p-3 flex items-start gap-3 transition cursor-pointer select-none ${
+                              isSelected ? 'bg-blue-50/90 border-l-4 border-blue-600' : 'hover:bg-white bg-transparent'
+                            }`}
+                          >
+                            <div className="pt-0.5 text-blue-600">
+                              {isSelected ? (
+                                <CheckSquare className="w-4 h-4 fill-blue-600 text-white" />
+                              ) : (
+                                <Square className="w-4 h-4 text-slate-400" />
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center justify-between gap-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-bold text-blue-700">{asset.assetCode}</span>
+                                  <span className="font-semibold text-slate-900 truncate max-w-[280px]">{asset.name}</span>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  asset.managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
+                                  asset.managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {asset.managingUnit === 'DUOC' ? 'Khoa Dược' : asset.managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 mt-1">
+                                <span>Vị trí: <strong>{asset.locationDetail || (asset as any).floor || 'Tại khoa'}</strong></span>
+                                {asset.assignedTo && <span>Người SD: <strong>{asset.assignedTo}</strong></span>}
+                                {asset.yearInUse && <span>Năm SD: <strong>{asset.yearInUse}</strong></span>}
+                                {asset.originalPrice && (
+                                  <span>Nguyên giá: <strong>{Number(asset.originalPrice).toLocaleString('vi-VN')} đ</strong></span>
+                                )}
+                              </div>
+                              {asset.specifications && (
+                                <div className="text-[10px] text-slate-400 truncate mt-0.5">{asset.specifications}</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </div>
 
-                {/* Filter and search bar inside modal */}
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder="Tìm nhanh theo mã, tên thiết bị, phòng..."
-                      value={modalAssetSearch}
-                      onChange={e => setModalAssetSearch(e.target.value)}
-                      className="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <select
-                    value={modalUnitFilter}
-                    onChange={e => setModalUnitFilter(e.target.value)}
-                    className="px-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500"
+                <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateProposalModal(false)}
+                    className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
                   >
-                    <option value="ALL">Tất cả khối</option>
-                    <option value="DUOC">Khoa Dược (TBYT)</option>
-                    <option value="CNTT">Tổ CNTT</option>
-                    <option value="TCHC">Phòng TCHC</option>
-                  </select>
-                </div>
+                    Hủy bỏ
+                  </button>
 
-                {/* Scrollable list of selectable assets */}
-                <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-60 overflow-y-auto bg-slate-50/50 shadow-inner">
-                  {filteredCandidateAssets.length === 0 ? (
-                    <div className="p-6 text-center text-slate-400">
-                      Không tìm thấy thiết bị nào phù hợp.
-                    </div>
-                  ) : (
-                    filteredCandidateAssets.map(asset => {
-                      const isSelected = selectedAssetIds.includes(asset.id);
-                      return (
-                        <div
-                          key={asset.id}
-                          onClick={() => toggleSelectAsset(asset.id)}
-                          className={`p-3 flex items-start gap-3 transition cursor-pointer select-none ${
-                            isSelected ? 'bg-blue-50/80 border-l-4 border-blue-600' : 'hover:bg-white bg-transparent'
-                          }`}
-                        >
-                          <div className="pt-0.5 text-blue-600">
-                            {isSelected ? (
-                              <CheckSquare className="w-4 h-4 fill-blue-600 text-white" />
-                            ) : (
-                              <Square className="w-4 h-4 text-slate-400" />
-                            )}
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center justify-between gap-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono font-bold text-blue-700">{asset.assetCode}</span>
-                                <span className="font-semibold text-slate-900 truncate max-w-[280px]">{asset.name}</span>
-                              </div>
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                asset.managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
-                                asset.managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
-                                'bg-amber-100 text-amber-800'
-                              }`}>
-                                {asset.managingUnit === 'DUOC' ? 'Khoa Dược' : asset.managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 mt-1">
-                              <span>Vị trí: <strong>{asset.locationDetail || (asset as any).floor || 'Tại khoa'}</strong></span>
-                              {asset.assignedTo && <span>Người SD: <strong>{asset.assignedTo}</strong></span>}
-                              {asset.yearInUse && <span>Năm SD: <strong>{asset.yearInUse}</strong></span>}
-                              {asset.originalPrice && (
-                                <span>Nguyên giá: <strong>{Number(asset.originalPrice).toLocaleString('vi-VN')} đ</strong></span>
-                              )}
-                            </div>
-                            {asset.specifications && (
-                              <div className="text-[10px] text-slate-400 truncate mt-0.5">{asset.specifications}</div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                  <button
+                    type="button"
+                    onClick={handleProceedToSummary}
+                    disabled={selectedAssetIds.length === 0}
+                    className={`px-5 py-2.5 rounded-xl font-bold shadow flex items-center gap-2 transition cursor-pointer text-xs ${
+                      selectedAssetIds.length === 0
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30'
+                    }`}
+                  >
+                    <Layers className="w-4 h-4" />
+                    <span>Tổng Hợp Đề Xuất ({selectedAssetIds.length} tài sản)</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
+            )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 uppercase mb-1">Cán bộ / Người lập báo cáo đề xuất (*)</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ví dụ: BS. Nguyễn Văn A, DS. Trần Thị B..."
-                    value={proposalData.proposedBy}
-                    onChange={e => setProposalData({ ...proposalData, proposedBy: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
+            {/* ========================================================================= */}
+            {/* BƯỚC 2: BẢNG TỔNG HỢP & ĐIỀN LÝ DO CHO TỪNG TÀI SẢN                       */}
+            {/* ========================================================================= */}
+            {proposalStep === 2 && (
+              <form onSubmit={handleSendSummaryProposal} className="p-6 space-y-4 text-xs overflow-y-auto flex-1 flex flex-col">
+                {/* Thanh thông tin người tổng hợp & Công cụ áp dụng nhanh */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                        {proposalItems.length}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 text-sm">
+                          Danh mục {proposalItems.length} tài sản đề xuất thanh lý
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          Khoa/Phòng: <strong>{user?.fullName || departments.find(d => d.id === user?.departmentId)?.name || 'Đơn vị'}</strong> | Đợt: <strong>{proposalData.campaignName}</strong>
+                        </div>
+                      </div>
+                    </div>
 
-                <div>
-                  <label className="block font-bold text-slate-700 uppercase mb-1">Khoa / Phòng đề xuất</label>
-                  <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-800">
-                    {user?.fullName || departments.find(d => d.id === user?.departmentId)?.name || 'Đơn vị đề xuất'}
+                    <div className="flex items-center gap-2">
+                      <label className="font-bold text-slate-700 text-[11px] whitespace-nowrap">Người lập bảng (*):</label>
+                      <input
+                        type="text"
+                        required
+                        value={proposalData.proposedBy}
+                        onChange={e => setProposalData({ ...proposalData, proposedBy: e.target.value })}
+                        className="px-3 py-1.5 border border-slate-300 rounded-xl bg-white font-semibold text-slate-800 text-xs focus:ring-2 focus:ring-blue-500 outline-none w-48"
+                        placeholder="Họ tên người lập..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Thanh áp dụng lý do nhanh cho tất cả */}
+                  <div className="pt-2 border-t border-slate-200/60 flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-slate-600 text-[11px] flex items-center gap-1">
+                      💡 Áp dụng nhanh lý do mẫu cho tất cả:
+                    </span>
+                    <select
+                      value={quickReasonSelect}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setQuickReasonSelect(val);
+                        handleApplyQuickReasonToAll(val);
+                      }}
+                      className="px-2.5 py-1.5 border border-slate-300 rounded-xl bg-white text-xs text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 outline-none flex-1 max-w-md"
+                    >
+                      <option value="">-- Chọn lý do mẫu để áp dụng nhanh --</option>
+                      {PRESET_REASONS.map((r, idx) => (
+                        <option key={idx} value={r}>{r}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 uppercase mb-1">Lý do & Tình trạng hư hỏng chung (*)</label>
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="Mô tả cụ thể: Thiết bị hỏng bo mạch chính chập cháy, màn hình sọc nhòe, máy xét nghiệm không nhận hóa chất, đã sửa chữa nhiều lần không hiệu quả kinh tế..."
-                  value={proposalData.reason}
-                  onChange={e => setProposalData({ ...proposalData, reason: e.target.value })}
-                  className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none leading-relaxed"
-                />
-              </div>
+                {/* Bảng danh sách từng tài sản với ô nhập lý do riêng */}
+                <div className="flex-1 overflow-y-auto border border-slate-200 rounded-2xl bg-white shadow-xs max-h-96">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-100/80 text-slate-700 font-bold sticky top-0 z-10 border-b border-slate-200">
+                      <tr>
+                        <th className="p-3 text-center w-10">STT</th>
+                        <th className="p-3 w-48">Mã & Tên tài sản</th>
+                        <th className="p-3 w-44">Vị trí / Năm SD / Giá</th>
+                        <th className="p-3">Lý do đề xuất thanh lý của từng tài sản (*)</th>
+                        <th className="p-3 text-center w-12">Xóa</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {proposalItems.map((item, idx) => (
+                        <tr key={item.assetId} className="hover:bg-slate-50/60 transition">
+                          <td className="p-3 text-center font-bold text-slate-500">{idx + 1}</td>
+                          
+                          <td className="p-3 align-top">
+                            <div className="font-mono font-bold text-blue-700 text-xs">{item.asset.assetCode}</div>
+                            <div className="font-semibold text-slate-900 mt-0.5">{item.asset.name}</div>
+                            <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              item.asset.managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
+                              item.asset.managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
+                              'bg-amber-100 text-amber-800'
+                            }`}>
+                              {item.asset.managingUnit === 'DUOC' ? 'Khoa Dược' : item.asset.managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
+                            </span>
+                          </td>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateProposalModal(false)}
-                  className="px-4 py-2.5 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={selectedAssetIds.length === 0}
-                  className={`px-5 py-2.5 rounded-xl font-bold shadow flex items-center gap-1.5 transition cursor-pointer ${
-                    selectedAssetIds.length === 0
-                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30'
-                  }`}
-                >
-                  <Send className="w-3.5 h-3.5" /> 
-                  <span>Gửi Báo Cáo Đề Xuất ({selectedAssetIds.length} thiết bị)</span>
-                </button>
-              </div>
-            </form>
+                          <td className="p-3 align-top text-[11px] text-slate-600 space-y-0.5">
+                            <div>Phòng: <strong>{item.asset.locationDetail || (item.asset as any).floor || 'Tại khoa'}</strong></div>
+                            {item.asset.yearInUse && <div>Năm SD: <strong>{item.asset.yearInUse}</strong></div>}
+                            {item.asset.originalPrice && (
+                              <div className="font-mono text-slate-800">
+                                Nguyên giá: <strong>{Number(item.asset.originalPrice).toLocaleString('vi-VN')} đ</strong>
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="p-3 align-top space-y-1.5">
+                            <textarea
+                              rows={2}
+                              required
+                              value={item.reason}
+                              onChange={e => handleUpdateItemReason(item.assetId, e.target.value)}
+                              placeholder="Nhập cụ thể tình trạng hư hỏng, lý do đề xuất thanh lý của tài sản này..."
+                              className="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-xs text-slate-900 bg-white"
+                            />
+                            
+                            {/* Nút bấm chọn nhanh lý do mẫu cho từng tài sản */}
+                            <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                              <span className="text-slate-400 font-bold">Gợi ý:</span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateItemReason(item.assetId, 'Hư hỏng nặng không thể phục hồi, chi phí sửa chữa không hiệu quả kinh tế')}
+                                className="px-1.5 py-0.5 bg-slate-100 hover:bg-blue-100 text-slate-700 hover:text-blue-800 rounded transition cursor-pointer"
+                              >
+                                🏷️ Hỏng nặng
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateItemReason(item.assetId, 'Thiết bị đã qua nhiều năm sử dụng, linh kiện hao mòn, chập cháy bo mạch chính')}
+                                className="px-1.5 py-0.5 bg-slate-100 hover:bg-blue-100 text-slate-700 hover:text-blue-800 rounded transition cursor-pointer"
+                              >
+                                🏷️ Hao mòn chập mạch
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateItemReason(item.assetId, 'Lạc hậu công nghệ, không còn linh kiện và hóa chất tương thích chính hãng')}
+                                className="px-1.5 py-0.5 bg-slate-100 hover:bg-blue-100 text-slate-700 hover:text-blue-800 rounded transition cursor-pointer"
+                              >
+                                🏷️ Hết linh kiện thay
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateItemReason(item.assetId, 'Hỏng panel / màn hình hiển thị nứt vỡ, không lên nguồn')}
+                                className="px-1.5 py-0.5 bg-slate-100 hover:bg-blue-100 text-slate-700 hover:text-blue-800 rounded transition cursor-pointer"
+                              >
+                                🏷️ Hỏng màn hình/nguồn
+                              </button>
+                            </div>
+                          </td>
+
+                          <td className="p-3 text-center align-top">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProposalItem(item.assetId)}
+                              title="Loại bỏ tài sản này khỏi bảng tổng hợp"
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer Bước 2 */}
+                <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setProposalStep(1)}
+                    className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 font-semibold cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>← Quay lại chọn thêm tài sản</span>
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateProposalModal(false)}
+                      className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
+                    >
+                      Hủy bỏ
+                    </button>
+                    
+                    <button
+                      type="submit"
+                      disabled={proposalItems.length === 0}
+                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition cursor-pointer"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Gửi Bảng Tổng Hợp Đề Xuất ({proposalItems.length} tài sản)</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
