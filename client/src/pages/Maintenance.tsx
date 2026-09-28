@@ -936,8 +936,8 @@ export default function Maintenance() {
       {/* MODAL 1: TẠO YÊU CẦU BÁO HỎNG / SỬA CHỮA MỚI (KHOA / PHÒNG GỬI)            */}
       {/* ========================================================================= */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-bold text-base text-slate-900">Phiếu Báo Hỏng & Đề Nghị Sửa Chữa Thiết Bị</h3>
@@ -946,21 +946,22 @@ export default function Maintenance() {
               <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">✕</button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="space-y-3.5 text-xs">
+            <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
               {/* Row 1: Khoa/Phòng + Khối Tiếp Nhận */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 uppercase mb-1">Khoa / Phòng yêu cầu (*)</label>
                   {user?.role === 'DEPARTMENT' ? (
-                    <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-800">
-                      {user.fullName || departments.find(d => d.id === user.departmentId)?.name || 'Khoa / Phòng của bạn'}
+                    <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-800 flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-blue-600" />
+                      <span>{user.fullName || departments.find(d => d.id === user.departmentId)?.name || 'Khoa / Phòng của bạn'}</span>
                     </div>
                   ) : (
                     <select
                       required
                       value={formData.departmentId}
                       onChange={e => setFormData({ ...formData, departmentId: e.target.value, assetId: '' })}
-                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium text-xs"
                     >
                       {departments.map(d => (
                         <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
@@ -975,27 +976,77 @@ export default function Maintenance() {
                     required
                     value={formData.managingUnit}
                     onChange={e => setFormData({ ...formData, managingUnit: e.target.value, assetId: '' })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-blue-50/50 text-blue-900 font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-blue-50/70 text-blue-900 font-bold focus:ring-2 focus:ring-blue-500 outline-none text-xs"
                   >
+                    <option value="ALL">📋 Tất cả tài sản của Khoa (CNTT, Dược TBYT, TCHC)</option>
                     <option value="CNTT">💻 Thiết bị CNTT (Tổ CNTT tiếp nhận)</option>
                     <option value="DUOC">🩺 Trang thiết bị Y tế (Khoa Dược tiếp nhận)</option>
-                    <option value="TCHC">🏢 Hành chính & Tòa nhà (Phòng TCHC tiếp nhận)</option>
+                    <option value="TCHC">🏢 Cơ sở vật chất & Tòa nhà (Phòng TCHC tiếp nhận)</option>
                   </select>
                 </div>
               </div>
 
-              {/* Row 2: Chọn thiết bị dạng Card / List có tick và hiển thị Người sử dụng */}
-              <div className="space-y-1.5">
+              {/* Row 2: Chọn thiết bị dạng BẢNG CHIA CỘT RÕ RÀNG */}
+              <div className="space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <label className="font-bold text-slate-700 uppercase flex items-center gap-1.5">
                     <span>Chọn thiết bị hư hỏng (*):</span>
                     {selectedCreateAsset && (
-                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-extrabold rounded-md text-[11px]">
-                        Đã chọn: [{selectedCreateAsset.assetCode}] {selectedCreateAsset.name}
+                      <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-extrabold rounded-md text-[11px] border border-emerald-300 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Đã chọn: [{selectedCreateAsset.assetCode}] {selectedCreateAsset.name}</span>
                       </span>
                     )}
                   </label>
-                  <span className="text-[11px] text-blue-600 font-medium">({departmentAssets.length} thiết bị phù hợp)</span>
+                  <span className="text-[11px] text-blue-600 font-semibold">({departmentAssets.length} thiết bị phù hợp)</span>
+                </div>
+
+                {/* Quick Category Filter Pills */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, managingUnit: 'ALL' })}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-xl transition cursor-pointer ${
+                      formData.managingUnit === 'ALL'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, managingUnit: 'CNTT' })}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-xl transition cursor-pointer ${
+                      formData.managingUnit === 'CNTT'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                    }`}
+                  >
+                    💻 Tổ CNTT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, managingUnit: 'DUOC' })}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-xl transition cursor-pointer ${
+                      formData.managingUnit === 'DUOC'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                    }`}
+                  >
+                    🩺 Khoa Dược (TBYT)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, managingUnit: 'TCHC' })}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-xl transition cursor-pointer ${
+                      formData.managingUnit === 'TCHC'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                    }`}
+                  >
+                    🏢 Phòng TCHC
+                  </button>
                 </div>
 
                 {/* Quick Search */}
@@ -1003,78 +1054,107 @@ export default function Maintenance() {
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Tìm nhanh theo mã TS, tên máy, người sử dụng (ví dụ: BS. A...), phòng máy..."
+                    placeholder="Tìm nhanh theo mã tài sản, tên thiết bị, người sử dụng, phòng máy..."
                     value={createAssetSearch}
                     onChange={e => setCreateAssetSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
-                {/* Scrollable list of assets with user and room info */}
-                <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-52 overflow-y-auto bg-slate-50/50 shadow-inner">
-                  {departmentAssets.length === 0 ? (
-                    <div className="p-4 text-center text-slate-400 text-xs">
-                      Không tìm thấy thiết bị nào phù hợp trong danh mục của Khoa.
-                    </div>
-                  ) : (
-                    departmentAssets.map(a => {
-                      const isSelected = formData.assetId === a.id.toString();
-                      return (
-                        <div
-                          key={a.id}
-                          onClick={() => {
-                            setFormData({
-                              ...formData,
-                              assetId: a.id.toString(),
-                              locationDetail: a.locationDetail || formData.locationDetail,
-                              managingUnit: (a as any).managingUnit || (a.categoryId === 2 ? 'CNTT' : a.categoryId === 1 ? 'DUOC' : 'TCHC'),
-                              requestedBy: formData.requestedBy || a.assignedTo || user?.fullName || ''
-                            });
-                          }}
-                          className={`p-2.5 flex items-start gap-2.5 transition cursor-pointer select-none ${
-                            isSelected ? 'bg-blue-50/90 border-l-4 border-blue-600' : 'hover:bg-white bg-transparent'
-                          }`}
-                        >
-                          <div className="pt-0.5 text-blue-600">
-                            {isSelected ? (
-                              <CheckCircle2 className="w-4 h-4 text-blue-600 fill-blue-100" />
-                            ) : (
-                              <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
-                            )}
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center justify-between gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono font-bold text-blue-700 bg-blue-100/60 px-1.5 py-0.2 rounded text-[11px]">{a.assetCode}</span>
-                                <span className="font-bold text-slate-900 truncate max-w-[260px]">{a.name}</span>
-                              </div>
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                (a as any).managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
-                                (a as any).managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
-                                'bg-amber-100 text-amber-800'
-                              }`}>
-                                {(a as any).managingUnit === 'DUOC' ? 'Khoa Dược' : (a as any).managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 mt-1">
-                              <span className="text-amber-800 font-medium">
-                                👤 Người SD: <strong>{a.assignedTo || 'Chưa gán'}</strong>
-                              </span>
-                              <span>
-                                📍 Vị trí: <strong>{a.locationDetail || (a as any).floor || 'Tại khoa'}</strong>
-                              </span>
-                              {a.yearInUse && <span>Năm SD: {a.yearInUse}</span>}
-                            </div>
-                            {a.specifications && (
-                              <div className="text-[10px] text-slate-400 truncate mt-0.5">{a.specifications}</div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                {/* Bảng chia cột danh sách thiết bị */}
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xs">
+                  <div className="max-h-60 overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-100/90 text-slate-700 font-bold sticky top-0 z-10 border-b border-slate-200 text-[11px]">
+                        <tr>
+                          <th className="p-2.5 text-center w-12">Chọn</th>
+                          <th className="p-2.5 w-32">Mã tài sản</th>
+                          <th className="p-2.5">Tên thiết bị</th>
+                          <th className="p-2.5 w-44">Người sử dụng</th>
+                          <th className="p-2.5 w-36">Vị trí phòng máy</th>
+                          <th className="p-2.5 w-20 text-center">Năm SD</th>
+                          <th className="p-2.5 w-28 text-center">Đơn vị</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {departmentAssets.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="p-6 text-center text-slate-400 text-xs">
+                              Không tìm thấy thiết bị nào phù hợp trong danh mục của Khoa.
+                            </td>
+                          </tr>
+                        ) : (
+                          departmentAssets.map(a => {
+                            const isSelected = formData.assetId === a.id.toString();
+                            return (
+                              <tr
+                                key={a.id}
+                                onClick={() => {
+                                  setFormData({
+                                    ...formData,
+                                    assetId: a.id.toString(),
+                                    locationDetail: a.locationDetail || formData.locationDetail,
+                                    managingUnit: (a as any).managingUnit || (a.categoryId === 2 ? 'CNTT' : a.categoryId === 1 ? 'DUOC' : 'TCHC'),
+                                    requestedBy: formData.requestedBy || a.assignedTo || user?.fullName || ''
+                                  });
+                                }}
+                                className={`transition cursor-pointer select-none ${
+                                  isSelected 
+                                    ? 'bg-blue-50/95 font-medium text-blue-900 border-l-4 border-blue-600' 
+                                    : 'hover:bg-slate-50/80 text-slate-700'
+                                }`}
+                              >
+                                <td className="p-2.5 text-center align-middle">
+                                  {isSelected ? (
+                                    <CheckCircle2 className="w-4 h-4 text-blue-600 fill-blue-100 mx-auto" />
+                                  ) : (
+                                    <div className="w-4 h-4 rounded-full border-2 border-slate-300 mx-auto" />
+                                  )}
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  <span className="font-mono font-bold text-blue-700 bg-blue-50/90 px-2 py-0.5 rounded text-[11px] border border-blue-200 inline-block">
+                                    {a.assetCode}
+                                  </span>
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  <div className="font-bold text-slate-900">{a.name}</div>
+                                  {a.specifications && (
+                                    <div className="text-[10px] text-slate-400 truncate max-w-[220px] mt-0.5">{a.specifications}</div>
+                                  )}
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  {a.assignedTo ? (
+                                    <span className="font-semibold text-slate-800 flex items-center gap-1">
+                                      <span>👤</span> <span>{a.assignedTo}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 italic">Chưa gán</span>
+                                  )}
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  <span className="text-slate-700 flex items-center gap-1">
+                                    <span>📍</span> <span>{a.locationDetail || (a as any).floor || 'Tại khoa'}</span>
+                                  </span>
+                                </td>
+                                <td className="p-2.5 text-center align-middle font-mono text-slate-600">
+                                  {a.yearInUse || '-'}
+                                </td>
+                                <td className="p-2.5 text-center align-middle">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    (a as any).managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
+                                    (a as any).managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-amber-100 text-amber-800'
+                                  }`}>
+                                    {(a as any).managingUnit === 'DUOC' ? 'Khoa Dược' : (a as any).managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 
@@ -1477,8 +1557,8 @@ export default function Maintenance() {
       {/* MODAL 4: CHỈNH SỬA TOÀN BỘ NỘI DUNG PHIẾU BẢO TRÌ / SỬA CHỮA              */}
       {/* ========================================================================= */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full p-6 max-h-[92vh] overflow-y-auto space-y-4 border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-bold text-base text-slate-900">Chỉnh Sửa Toàn Bộ Hồ Sơ Sửa Chữa / Bảo Trì</h3>
@@ -1493,14 +1573,15 @@ export default function Maintenance() {
                 <div>
                   <label className="block font-bold text-slate-700 uppercase mb-1">Khoa / Phòng sử dụng</label>
                   {user?.role === 'DEPARTMENT' ? (
-                    <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-800">
-                      {user.fullName || departments.find(d => d.id.toString() === editData.departmentId)?.name || 'Khoa / Phòng của bạn'}
+                    <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-800 flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-blue-600" />
+                      <span>{user.fullName || departments.find(d => d.id.toString() === editData.departmentId)?.name || 'Khoa / Phòng của bạn'}</span>
                     </div>
                   ) : (
                     <select
                       value={editData.departmentId}
                       onChange={e => setEditData({ ...editData, departmentId: e.target.value })}
-                      className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                      className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium text-xs bg-white"
                     >
                       {departments.map(d => (
                         <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
@@ -1514,8 +1595,9 @@ export default function Maintenance() {
                   <select
                     value={editData.managingUnit}
                     onChange={e => setEditData({ ...editData, managingUnit: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-blue-50/70 text-blue-900 font-bold focus:ring-2 focus:ring-blue-500 outline-none text-xs"
                   >
+                    <option value="ALL">📋 Tất cả các khối (CNTT, Dược, TCHC)</option>
                     <option value="CNTT">💻 Khối Thiết bị CNTT (Tổ CNTT)</option>
                     <option value="DUOC">🩺 Khối Trang thiết bị Y tế (Khoa Dược)</option>
                     <option value="TCHC">🏢 Khối Thiết bị Hành chính (Phòng TCHC)</option>
@@ -1523,18 +1605,67 @@ export default function Maintenance() {
                 </div>
               </div>
 
-              {/* Row 2: Chọn thiết bị dạng Card / List có tick và hiển thị Người sử dụng */}
-              <div className="space-y-1.5">
+              {/* Row 2: Chọn thiết bị dạng BẢNG CHIA CỘT RÕ RÀNG */}
+              <div className="space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <label className="font-bold text-slate-700 uppercase flex items-center gap-1.5">
                     <span>Thiết bị hỏng / cần sửa (*):</span>
                     {selectedEditAsset && (
-                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-extrabold rounded-md text-[11px]">
-                        Đã chọn: [{selectedEditAsset.assetCode}] {selectedEditAsset.name}
+                      <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-extrabold rounded-md text-[11px] border border-emerald-300 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Đã chọn: [{selectedEditAsset.assetCode}] {selectedEditAsset.name}</span>
                       </span>
                     )}
                   </label>
-                  <span className="text-[11px] text-blue-600 font-medium">({editDepartmentAssets.length} thiết bị phù hợp)</span>
+                  <span className="text-[11px] text-blue-600 font-semibold">({editDepartmentAssets.length} thiết bị phù hợp)</span>
+                </div>
+
+                {/* Quick Category Filter Pills */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditData({ ...editData, managingUnit: 'ALL' })}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-xl transition cursor-pointer ${
+                      editData.managingUnit === 'ALL'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditData({ ...editData, managingUnit: 'CNTT' })}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-xl transition cursor-pointer ${
+                      editData.managingUnit === 'CNTT'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                    }`}
+                  >
+                    💻 Tổ CNTT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditData({ ...editData, managingUnit: 'DUOC' })}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-xl transition cursor-pointer ${
+                      editData.managingUnit === 'DUOC'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                    }`}
+                  >
+                    🩺 Khoa Dược (TBYT)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditData({ ...editData, managingUnit: 'TCHC' })}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-xl transition cursor-pointer ${
+                      editData.managingUnit === 'TCHC'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                    }`}
+                  >
+                    🏢 Phòng TCHC
+                  </button>
                 </div>
 
                 {/* Quick Search */}
@@ -1542,78 +1673,107 @@ export default function Maintenance() {
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Tìm nhanh theo mã TS, tên máy, người sử dụng, phòng máy..."
+                    placeholder="Tìm nhanh theo mã tài sản, tên thiết bị, người sử dụng, phòng máy..."
                     value={editAssetSearch}
                     onChange={e => setEditAssetSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
-                {/* Scrollable list of assets with user and room info */}
-                <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-52 overflow-y-auto bg-slate-50/50 shadow-inner">
-                  {editDepartmentAssets.length === 0 ? (
-                    <div className="p-4 text-center text-slate-400 text-xs">
-                      Không tìm thấy thiết bị nào phù hợp.
-                    </div>
-                  ) : (
-                    editDepartmentAssets.map(a => {
-                      const isSelected = editData.assetId === a.id.toString();
-                      return (
-                        <div
-                          key={a.id}
-                          onClick={() => {
-                            setEditData({
-                              ...editData,
-                              assetId: a.id.toString(),
-                              locationDetail: a.locationDetail || editData.locationDetail,
-                              departmentId: a.departmentId ? a.departmentId.toString() : editData.departmentId,
-                              managingUnit: (a as any).managingUnit || editData.managingUnit
-                            });
-                          }}
-                          className={`p-2.5 flex items-start gap-2.5 transition cursor-pointer select-none ${
-                            isSelected ? 'bg-blue-50/90 border-l-4 border-blue-600' : 'hover:bg-white bg-transparent'
-                          }`}
-                        >
-                          <div className="pt-0.5 text-blue-600">
-                            {isSelected ? (
-                              <CheckCircle2 className="w-4 h-4 text-blue-600 fill-blue-100" />
-                            ) : (
-                              <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
-                            )}
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center justify-between gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono font-bold text-blue-700 bg-blue-100/60 px-1.5 py-0.2 rounded text-[11px]">{a.assetCode}</span>
-                                <span className="font-bold text-slate-900 truncate max-w-[260px]">{a.name}</span>
-                              </div>
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                (a as any).managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
-                                (a as any).managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
-                                'bg-amber-100 text-amber-800'
-                              }`}>
-                                {(a as any).managingUnit === 'DUOC' ? 'Khoa Dược' : (a as any).managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 mt-1">
-                              <span className="text-amber-800 font-medium">
-                                👤 Người SD: <strong>{a.assignedTo || 'Chưa gán'}</strong>
-                              </span>
-                              <span>
-                                📍 Vị trí: <strong>{a.locationDetail || (a as any).floor || 'Tại khoa'}</strong>
-                              </span>
-                              {a.yearInUse && <span>Năm SD: {a.yearInUse}</span>}
-                            </div>
-                            {a.specifications && (
-                              <div className="text-[10px] text-slate-400 truncate mt-0.5">{a.specifications}</div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                {/* Bảng chia cột danh sách thiết bị chỉnh sửa */}
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xs">
+                  <div className="max-h-60 overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-100/90 text-slate-700 font-bold sticky top-0 z-10 border-b border-slate-200 text-[11px]">
+                        <tr>
+                          <th className="p-2.5 text-center w-12">Chọn</th>
+                          <th className="p-2.5 w-32">Mã tài sản</th>
+                          <th className="p-2.5">Tên thiết bị</th>
+                          <th className="p-2.5 w-44">Người sử dụng</th>
+                          <th className="p-2.5 w-36">Vị trí phòng máy</th>
+                          <th className="p-2.5 w-20 text-center">Năm SD</th>
+                          <th className="p-2.5 w-28 text-center">Đơn vị</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {editDepartmentAssets.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="p-6 text-center text-slate-400 text-xs">
+                              Không tìm thấy thiết bị nào phù hợp.
+                            </td>
+                          </tr>
+                        ) : (
+                          editDepartmentAssets.map(a => {
+                            const isSelected = editData.assetId === a.id.toString();
+                            return (
+                              <tr
+                                key={a.id}
+                                onClick={() => {
+                                  setEditData({
+                                    ...editData,
+                                    assetId: a.id.toString(),
+                                    locationDetail: a.locationDetail || editData.locationDetail,
+                                    departmentId: a.departmentId ? a.departmentId.toString() : editData.departmentId,
+                                    managingUnit: (a as any).managingUnit || editData.managingUnit
+                                  });
+                                }}
+                                className={`transition cursor-pointer select-none ${
+                                  isSelected 
+                                    ? 'bg-blue-50/95 font-medium text-blue-900 border-l-4 border-blue-600' 
+                                    : 'hover:bg-slate-50/80 text-slate-700'
+                                }`}
+                              >
+                                <td className="p-2.5 text-center align-middle">
+                                  {isSelected ? (
+                                    <CheckCircle2 className="w-4 h-4 text-blue-600 fill-blue-100 mx-auto" />
+                                  ) : (
+                                    <div className="w-4 h-4 rounded-full border-2 border-slate-300 mx-auto" />
+                                  )}
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  <span className="font-mono font-bold text-blue-700 bg-blue-50/90 px-2 py-0.5 rounded text-[11px] border border-blue-200 inline-block">
+                                    {a.assetCode}
+                                  </span>
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  <div className="font-bold text-slate-900">{a.name}</div>
+                                  {a.specifications && (
+                                    <div className="text-[10px] text-slate-400 truncate max-w-[220px] mt-0.5">{a.specifications}</div>
+                                  )}
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  {a.assignedTo ? (
+                                    <span className="font-semibold text-slate-800 flex items-center gap-1">
+                                      <span>👤</span> <span>{a.assignedTo}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 italic">Chưa gán</span>
+                                  )}
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  <span className="text-slate-700 flex items-center gap-1">
+                                    <span>📍</span> <span>{a.locationDetail || (a as any).floor || 'Tại khoa'}</span>
+                                  </span>
+                                </td>
+                                <td className="p-2.5 text-center align-middle font-mono text-slate-600">
+                                  {a.yearInUse || '-'}
+                                </td>
+                                <td className="p-2.5 text-center align-middle">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    (a as any).managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
+                                    (a as any).managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-amber-100 text-amber-800'
+                                  }`}>
+                                    {(a as any).managingUnit === 'DUOC' ? 'Khoa Dược' : (a as any).managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 

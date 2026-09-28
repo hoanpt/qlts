@@ -902,9 +902,7 @@ export default function Disposals() {
       {/* ========================================================================= */}
       {showCreateProposalModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className={`bg-white rounded-3xl shadow-2xl w-full flex flex-col max-h-[92vh] border border-slate-200 transition-all duration-200 ${
-            proposalStep === 2 ? 'max-w-5xl' : 'max-w-3xl'
-          }`}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full flex flex-col max-h-[92vh] border border-slate-200 transition-all duration-200 max-w-5xl">
             {/* Modal Header with Steps Indicator */}
             <div className="px-6 py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white flex justify-between items-center rounded-t-3xl shrink-0">
               <div className="flex items-center gap-3">
@@ -1007,87 +1005,160 @@ export default function Disposals() {
                     </div>
                   </div>
 
-                  {/* Filter and search bar inside modal */}
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
+                  {/* Filter pills and search bar */}
+                  <div className="space-y-2">
+                    {/* Quick Category Filter Pills */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setModalUnitFilter('ALL')}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          modalUnitFilter === 'ALL'
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        Tất cả khối ({candidateAssets.filter(a => user?.role !== 'DEPARTMENT' || !user.departmentId || a.departmentId === user.departmentId).length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setModalUnitFilter('DUOC')}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          modalUnitFilter === 'DUOC'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                        }`}
+                      >
+                        🩺 Khoa Dược (TBYT)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setModalUnitFilter('CNTT')}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          modalUnitFilter === 'CNTT'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                        }`}
+                      >
+                        💻 Tổ CNTT
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setModalUnitFilter('TCHC')}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          modalUnitFilter === 'TCHC'
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                        }`}
+                      >
+                        🏢 Phòng TCHC
+                      </button>
+                    </div>
+
+                    <div className="relative">
                       <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="text"
-                        placeholder="Tìm nhanh theo mã, tên thiết bị, phòng máy..."
+                        placeholder="Tìm nhanh theo mã tài sản, tên thiết bị, người sử dụng, phòng máy..."
                         value={modalAssetSearch}
                         onChange={e => setModalAssetSearch(e.target.value)}
-                        className="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-
-                    <select
-                      value={modalUnitFilter}
-                      onChange={e => setModalUnitFilter(e.target.value)}
-                      className="px-3 py-1.5 border border-slate-300 rounded-xl bg-white text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="ALL">Tất cả khối</option>
-                      <option value="DUOC">🩺 Khoa Dược (TBYT)</option>
-                      <option value="CNTT">💻 Tổ CNTT</option>
-                      <option value="TCHC">🏢 Phòng TCHC</option>
-                    </select>
                   </div>
 
-                  {/* Scrollable list of selectable assets */}
-                  <div className="border border-slate-200 rounded-2xl divide-y divide-slate-100 max-h-72 overflow-y-auto bg-slate-50/50 shadow-inner">
-                    {filteredCandidateAssets.length === 0 ? (
-                      <div className="p-8 text-center text-slate-400">
-                        Không tìm thấy tài sản nào thuộc danh mục của đơn vị.
-                      </div>
-                    ) : (
-                      filteredCandidateAssets.map(asset => {
-                        const isSelected = selectedAssetIds.includes(asset.id);
-                        return (
-                          <div
-                            key={asset.id}
-                            onClick={() => toggleSelectAsset(asset.id)}
-                            className={`p-3 flex items-start gap-3 transition cursor-pointer select-none ${
-                              isSelected ? 'bg-blue-50/90 border-l-4 border-blue-600' : 'hover:bg-white bg-transparent'
-                            }`}
-                          >
-                            <div className="pt-0.5 text-blue-600">
-                              {isSelected ? (
-                                <CheckSquare className="w-4 h-4 fill-blue-600 text-white" />
-                              ) : (
-                                <Square className="w-4 h-4 text-slate-400" />
-                              )}
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center justify-between gap-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono font-bold text-blue-700">{asset.assetCode}</span>
-                                  <span className="font-semibold text-slate-900 truncate max-w-[280px]">{asset.name}</span>
-                                </div>
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                  asset.managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
-                                  asset.managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
-                                  'bg-amber-100 text-amber-800'
-                                }`}>
-                                  {asset.managingUnit === 'DUOC' ? 'Khoa Dược' : asset.managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
-                                </span>
-                              </div>
-
-                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 mt-1">
-                                <span>Vị trí: <strong>{asset.locationDetail || (asset as any).floor || 'Tại khoa'}</strong></span>
-                                {asset.assignedTo && <span>Người SD: <strong>{asset.assignedTo}</strong></span>}
-                                {asset.yearInUse && <span>Năm SD: <strong>{asset.yearInUse}</strong></span>}
-                                {asset.originalPrice && (
-                                  <span>Nguyên giá: <strong>{Number(asset.originalPrice).toLocaleString('vi-VN')} đ</strong></span>
-                                )}
-                              </div>
-                              {asset.specifications && (
-                                <div className="text-[10px] text-slate-400 truncate mt-0.5">{asset.specifications}</div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
+                  {/* Bảng chia cột danh sách tài sản đề xuất thanh lý */}
+                  <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xs">
+                    <div className="max-h-72 overflow-y-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-100/90 text-slate-700 font-bold sticky top-0 z-10 border-b border-slate-200 text-[11px]">
+                          <tr>
+                            <th className="p-2.5 text-center w-12">Chọn</th>
+                            <th className="p-2.5 w-32">Mã tài sản</th>
+                            <th className="p-2.5">Tên tài sản / Thiết bị</th>
+                            <th className="p-2.5 w-40">Người sử dụng</th>
+                            <th className="p-2.5 w-36">Vị trí phòng máy</th>
+                            <th className="p-2.5 w-20 text-center">Năm SD</th>
+                            <th className="p-2.5 w-28 text-right">Nguyên giá</th>
+                            <th className="p-2.5 w-28 text-center">Đơn vị</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredCandidateAssets.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="p-8 text-center text-slate-400 text-xs">
+                                Không tìm thấy tài sản nào thuộc danh mục của đơn vị phù hợp điều kiện tìm kiếm.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredCandidateAssets.map(asset => {
+                              const isSelected = selectedAssetIds.includes(asset.id);
+                              return (
+                                <tr
+                                  key={asset.id}
+                                  onClick={() => toggleSelectAsset(asset.id)}
+                                  className={`transition cursor-pointer select-none ${
+                                    isSelected 
+                                      ? 'bg-blue-50/95 font-medium text-blue-900 border-l-4 border-blue-600' 
+                                      : 'hover:bg-slate-50/80 text-slate-700'
+                                  }`}
+                                >
+                                  <td className="p-2.5 text-center align-middle">
+                                    <div className="pt-0.5 text-blue-600 flex items-center justify-center">
+                                      {isSelected ? (
+                                        <CheckSquare className="w-4 h-4 fill-blue-600 text-white" />
+                                      ) : (
+                                        <Square className="w-4 h-4 text-slate-400" />
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="p-2.5 align-middle">
+                                    <span className="font-mono font-bold text-blue-700 bg-blue-50/90 px-2 py-0.5 rounded text-[11px] border border-blue-200 inline-block">
+                                      {asset.assetCode}
+                                    </span>
+                                  </td>
+                                  <td className="p-2.5 align-middle">
+                                    <div className="font-bold text-slate-900">{asset.name}</div>
+                                    {asset.specifications && (
+                                      <div className="text-[10px] text-slate-400 truncate max-w-[220px] mt-0.5">{asset.specifications}</div>
+                                    )}
+                                  </td>
+                                  <td className="p-2.5 align-middle">
+                                    {asset.assignedTo ? (
+                                      <span className="font-semibold text-slate-800 flex items-center gap-1">
+                                        <span>👤</span> <span>{asset.assignedTo}</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400 italic">Chưa gán</span>
+                                    )}
+                                  </td>
+                                  <td className="p-2.5 align-middle">
+                                    <span className="text-slate-700 flex items-center gap-1">
+                                      <span>📍</span> <span>{asset.locationDetail || (asset as any).floor || 'Tại khoa'}</span>
+                                    </span>
+                                  </td>
+                                  <td className="p-2.5 text-center align-middle font-mono text-slate-600">
+                                    {asset.yearInUse || '-'}
+                                  </td>
+                                  <td className="p-2.5 text-right align-middle font-mono text-slate-700">
+                                    {asset.originalPrice ? Number(asset.originalPrice).toLocaleString('vi-VN') + ' đ' : '-'}
+                                  </td>
+                                  <td className="p-2.5 text-center align-middle">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      asset.managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
+                                      asset.managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
+                                      'bg-amber-100 text-amber-800'
+                                    }`}>
+                                      {asset.managingUnit === 'DUOC' ? 'Khoa Dược' : asset.managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 

@@ -3,7 +3,8 @@ import {
   Plus, AlertTriangle, CheckCircle2, Clock, Calendar, 
   Search, Printer, DollarSign, FileText, CheckCircle, XCircle, Users,
   Layers, ShieldCheck, Sparkles, Download, Edit3, Trash2, CalendarCheck,
-  Building2, UserCheck, Wrench, RefreshCw, X, ChevronRight, Check, Eye
+  Building2, UserCheck, Wrench, RefreshCw, X, ChevronRight, Check, Eye,
+  CheckSquare, Square
 } from 'lucide-react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -762,7 +763,7 @@ export default function PlannedMaintenance() {
       {/* ========================================================================= */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex justify-between items-center shrink-0">
               <div className="flex items-center gap-2.5">
@@ -907,57 +908,94 @@ export default function PlannedMaintenance() {
                   />
                 </div>
 
-                {/* Cards Selector Grid */}
-                <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-2xl divide-y divide-slate-100 bg-slate-50/60 p-1.5 space-y-1.5">
-                  {filteredAssetsForSelector.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400 text-xs">
-                      Không tìm thấy thiết bị nào trong khoa đã chọn phù hợp với điều kiện tìm kiếm.
-                    </div>
-                  ) : (
-                    filteredAssetsForSelector.map(a => {
-                      const isSelected = selectedAssetIds.includes(a.id);
-                      return (
-                        <div
-                          key={a.id}
-                          onClick={() => handleToggleAsset(a.id)}
-                          className={`p-3 rounded-xl cursor-pointer transition flex items-start justify-between gap-3 ${
-                            isSelected 
-                              ? 'bg-emerald-50/90 border border-emerald-400 shadow-xs' 
-                              : 'bg-white hover:bg-slate-100/80 border border-slate-200/70'
-                          }`}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-xs text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                                {a.assetCode}
-                              </span>
-                              <span className="font-bold text-xs text-slate-900 truncate">{a.name}</span>
-                              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                                a.managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
-                                a.managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
-                                'bg-amber-100 text-amber-800'
-                              }`}>
-                                {a.managingUnit === 'DUOC' ? 'TBYT' : a.managingUnit === 'CNTT' ? 'CNTT' : 'TCHC'}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 mt-1">
-                              {a.assignedTo && <span>👤 Người dùng: <b className="text-slate-700">{a.assignedTo}</b></span>}
-                              {a.locationDetail && <span>📍 Phòng: <b className="text-slate-700">{a.locationDetail}</b></span>}
-                              {a.specifications && <span className="truncate max-w-xs text-slate-400">⚙️ {a.specifications}</span>}
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 pt-0.5">
-                            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition ${
-                              isSelected ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white'
-                            }`}>
-                              {isSelected && <Check className="w-3.5 h-3.5" />}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                {/* Bảng chia cột danh sách thiết bị cần lập kế hoạch bảo trì */}
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xs">
+                  <div className="max-h-60 overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-100/90 text-slate-700 font-bold sticky top-0 z-10 border-b border-slate-200 text-[11px]">
+                        <tr>
+                          <th className="p-2.5 text-center w-12">Chọn</th>
+                          <th className="p-2.5 w-32">Mã tài sản</th>
+                          <th className="p-2.5">Tên thiết bị</th>
+                          <th className="p-2.5 w-40">Người sử dụng</th>
+                          <th className="p-2.5 w-36">Vị trí phòng máy</th>
+                          <th className="p-2.5 w-20 text-center">Năm SD</th>
+                          <th className="p-2.5 w-28 text-center">Đơn vị</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredAssetsForSelector.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="p-8 text-center text-slate-400 text-xs">
+                              Không tìm thấy thiết bị nào trong khoa đã chọn phù hợp với điều kiện tìm kiếm.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredAssetsForSelector.map(a => {
+                            const isSelected = selectedAssetIds.includes(a.id);
+                            return (
+                              <tr
+                                key={a.id}
+                                onClick={() => handleToggleAsset(a.id)}
+                                className={`transition cursor-pointer select-none ${
+                                  isSelected 
+                                    ? 'bg-emerald-50/95 font-medium text-emerald-950 border-l-4 border-emerald-600' 
+                                    : 'hover:bg-slate-50/80 text-slate-700'
+                                }`}
+                              >
+                                <td className="p-2.5 text-center align-middle">
+                                  <div className="pt-0.5 text-emerald-600 flex items-center justify-center">
+                                    {isSelected ? (
+                                      <CheckSquare className="w-4 h-4 fill-emerald-600 text-white" />
+                                    ) : (
+                                      <Square className="w-4 h-4 text-slate-400" />
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  <span className="font-mono font-bold text-emerald-700 bg-emerald-50/90 px-2 py-0.5 rounded text-[11px] border border-emerald-200 inline-block">
+                                    {a.assetCode}
+                                  </span>
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  <div className="font-bold text-slate-900">{a.name}</div>
+                                  {a.specifications && (
+                                    <div className="text-[10px] text-slate-400 truncate max-w-[220px] mt-0.5">{a.specifications}</div>
+                                  )}
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  {a.assignedTo ? (
+                                    <span className="font-semibold text-slate-800 flex items-center gap-1">
+                                      <span>👤</span> <span>{a.assignedTo}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 italic">Chưa gán</span>
+                                  )}
+                                </td>
+                                <td className="p-2.5 align-middle">
+                                  <span className="text-slate-700 flex items-center gap-1">
+                                    <span>📍</span> <span>{a.locationDetail || (a as any).floor || 'Tại khoa'}</span>
+                                  </span>
+                                </td>
+                                <td className="p-2.5 text-center align-middle font-mono text-slate-600">
+                                  {a.yearInUse || '-'}
+                                </td>
+                                <td className="p-2.5 text-center align-middle">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    a.managingUnit === 'DUOC' ? 'bg-emerald-100 text-emerald-800' :
+                                    a.managingUnit === 'CNTT' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-amber-100 text-amber-800'
+                                  }`}>
+                                    {a.managingUnit === 'DUOC' ? 'Khoa Dược' : a.managingUnit === 'CNTT' ? 'Tổ CNTT' : 'TCHC'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 
