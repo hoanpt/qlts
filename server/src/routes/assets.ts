@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { requireAuth } from '../middleware/auth';
 import QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
+import { syncCnttRecords } from '../syncCnttData';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -328,4 +329,31 @@ router.get('/by-qr/:code', requireAuth, async (req, res) => {
   }
 });
 
+router.post('/sync-cntt', requireAuth, async (req: any, res) => {
+  if (req.user?.role !== 'ADMIN' && req.user?.role !== 'MANAGER_CNTT') {
+    return res.status(403).json({ error: 'Quyền truy cập bị từ chối' });
+  }
+  try {
+    const result = await syncCnttRecords(prisma, true);
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error syncing CNTT assets:', error);
+    res.status(500).json({ error: error.message || 'Lỗi đồng bộ tài sản CNTT' });
+  }
+});
+
+router.get('/sync-cntt', requireAuth, async (req: any, res) => {
+  if (req.user?.role !== 'ADMIN' && req.user?.role !== 'MANAGER_CNTT') {
+    return res.status(403).json({ error: 'Quyền truy cập bị từ chối' });
+  }
+  try {
+    const result = await syncCnttRecords(prisma, true);
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error syncing CNTT assets:', error);
+    res.status(500).json({ error: error.message || 'Lỗi đồng bộ tài sản CNTT' });
+  }
+});
+
 export default router;
+
