@@ -45,7 +45,6 @@ router.get('/assets', requireAuth, async (req: any, res) => {
       where,
       include: { category: true, department: true },
       orderBy: [
-        { departmentId: 'asc' },
         { assetCode: 'asc' }
       ]
     });
@@ -228,7 +227,6 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
       where,
       include: { category: true, department: true },
       orderBy: [
-        { departmentId: 'asc' },
         { assetCode: 'asc' }
       ]
     });

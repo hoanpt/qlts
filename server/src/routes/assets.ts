@@ -11,6 +11,7 @@ router.get('/', requireAuth, async (req: any, res) => {
   const { 
     search, categoryId, departmentId, status, location, 
     managingUnit, floor, buildingAsset,
+    sortBy = 'assetCode', sortOrder = 'asc',
     page = '1', limit = '15' 
   } = req.query;
   
@@ -64,6 +65,25 @@ router.get('/', requireAuth, async (req: any, res) => {
     const pageNum = Math.max(1, parseInt(page as string) || 1);
     const limitNum = Math.max(1, parseInt(limit as string) || 15);
 
+    // Build dynamic sort order (Default: assetCode ascending)
+    const validSortOrder = (sortOrder as string)?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    let orderBy: any[] = [];
+
+    if (sortBy === 'name') {
+      orderBy = [{ name: validSortOrder }, { assetCode: 'asc' }];
+    } else if (sortBy === 'department') {
+      orderBy = [{ department: { name: validSortOrder } }, { assetCode: 'asc' }];
+    } else if (sortBy === 'yearInUse') {
+      orderBy = [{ yearInUse: validSortOrder }, { assetCode: 'asc' }];
+    } else if (sortBy === 'status') {
+      orderBy = [{ status: validSortOrder }, { assetCode: 'asc' }];
+    } else if (sortBy === 'originalPrice') {
+      orderBy = [{ originalPrice: validSortOrder }, { assetCode: 'asc' }];
+    } else {
+      // Default: sort by assetCode ascending
+      orderBy = [{ assetCode: validSortOrder }];
+    }
+
     const total = await prisma.asset.count({ where });
     const assets = await prisma.asset.findMany({
       where,
@@ -73,10 +93,7 @@ router.get('/', requireAuth, async (req: any, res) => {
         category: true,
         department: true
       },
-      orderBy: [
-        { departmentId: 'asc' },
-        { assetCode: 'asc' }
-      ]
+      orderBy
     });
     res.json({ total, page: pageNum, limit: limitNum, assets });
   } catch (error) {

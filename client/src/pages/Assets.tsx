@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Search, Plus, Download, Printer, Filter, Eye, Edit, Trash2, QrCode, RefreshCw,
-  Stethoscope, Monitor, Building2, Layers, ChevronLeft, ChevronRight, X
+  Stethoscope, Monitor, Building2, Layers, ChevronLeft, ChevronRight, X,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { STATUS_LABELS, STATUS_COLORS, Asset, Department, AssetCategory } from '../types';
 import { apiGet, apiDelete } from '../lib/api';
@@ -35,9 +36,11 @@ export default function Assets() {
     initialUnit
   );
 
-  // Filters
+  // Filters & Sorting (Mặc định: Mã tài sản tăng dần)
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [selectedFloor, setSelectedFloor] = useState(searchParams.get('floor') || 'Tất cả tầng');
+  const [sortBy, setSortBy] = useState<string>('assetCode');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 15;
@@ -78,6 +81,10 @@ export default function Assets() {
       if (selectedStatus) params.append('status', selectedStatus);
       if (selectedLocation) params.append('location', selectedLocation);
       
+      // Sorting
+      params.append('sortBy', sortBy);
+      params.append('sortOrder', sortOrder);
+
       params.append('page', page.toString());
       params.append('limit', limit.toString());
 
@@ -112,7 +119,17 @@ export default function Assets() {
 
   useEffect(() => {
     fetchAssets();
-  }, [page, activeTab, selectedFloor, selectedDept, selectedStatus, selectedLocation]);
+  }, [page, activeTab, selectedFloor, selectedDept, selectedStatus, selectedLocation, sortBy, sortOrder]);
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +143,8 @@ export default function Assets() {
     setSelectedStatus('');
     setSelectedLocation('');
     setSelectedFloor('Tất cả tầng');
+    setSortBy('assetCode');
+    setSortOrder('asc');
     setPage(1);
   };
 
@@ -391,13 +410,88 @@ export default function Assets() {
             <thead className="bg-slate-100 text-slate-700 font-bold uppercase border-b border-slate-200">
               <tr>
                 <th className="p-3.5 w-12 text-center">STT</th>
-                <th className="p-3.5 min-w-[100px]">Mã tài sản</th>
-                <th className="p-3.5 min-w-[220px]">Tên thiết bị / Tài sản</th>
+                <th 
+                  onClick={() => handleSort('assetCode')}
+                  className="p-3.5 min-w-[120px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                  title="Bấm để đổi chiều sắp xếp theo Mã tài sản"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-slate-800">Mã tài sản</span>
+                    {sortBy === 'assetCode' ? (
+                      <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </span>
+                    ) : (
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                    )}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('name')}
+                  className="p-3.5 min-w-[220px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                  title="Sắp xếp theo Tên thiết bị"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Tên thiết bị / Tài sản</span>
+                    {sortBy === 'name' ? (
+                      <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </span>
+                    ) : (
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                    )}
+                  </div>
+                </th>
                 <th className="p-3.5 min-w-[130px]">Khối quản lý</th>
-                <th className="p-3.5 min-w-[150px]">Khoa / Phòng SD</th>
+                <th 
+                  onClick={() => handleSort('department')}
+                  className="p-3.5 min-w-[150px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                  title="Sắp xếp theo Khoa / Phòng"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Khoa / Phòng SD</span>
+                    {sortBy === 'department' ? (
+                      <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </span>
+                    ) : (
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                    )}
+                  </div>
+                </th>
                 <th className="p-3.5 min-w-[130px]">Vị trí / Tầng</th>
-                <th className="p-3.5 min-w-[90px] text-center">Năm SD</th>
-                <th className="p-3.5 min-w-[100px]">Trạng thái</th>
+                <th 
+                  onClick={() => handleSort('yearInUse')}
+                  className="p-3.5 min-w-[90px] text-center cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                  title="Sắp xếp theo Năm sử dụng"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Năm SD</span>
+                    {sortBy === 'yearInUse' ? (
+                      <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </span>
+                    ) : (
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                    )}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('status')}
+                  className="p-3.5 min-w-[100px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                  title="Sắp xếp theo Trạng thái"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Trạng thái</span>
+                    {sortBy === 'status' ? (
+                      <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </span>
+                    ) : (
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                    )}
+                  </div>
+                </th>
                 <th className="p-3.5 text-right min-w-[110px]">Hành động</th>
               </tr>
             </thead>

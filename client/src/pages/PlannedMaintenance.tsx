@@ -97,7 +97,12 @@ export default function PlannedMaintenance() {
       ]);
 
       if (rRes.status === 'fulfilled' && Array.isArray(rRes.value)) setRecords(rRes.value);
-      if (aRes.status === 'fulfilled' && aRes.value?.assets) setAssets(aRes.value.assets);
+      if (aRes.status === 'fulfilled' && aRes.value?.assets) {
+        const sorted = [...aRes.value.assets].sort((a, b) =>
+          (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' })
+        );
+        setAssets(sorted);
+      }
       if (dRes.status === 'fulfilled' && Array.isArray(dRes.value)) setDepartments(dRes.value);
       if (sRes.status === 'fulfilled' && sRes.value) setStats(sRes.value);
     } catch (e) {
