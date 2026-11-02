@@ -72,14 +72,14 @@ export const BT_DATA = [
     "year": 2022,
     "maintDate": "2026-05-29",
     "vendor": "Công ty A.S.T MEDI",
-    "planContent": "Dịch vụ bảo trì, \nbảo dưỡng, thay thế linh kiện",
+    "planContent": "Dịch vụ bảo trì, bảo dưỡng, thay thế linh kiện",
     "result": "PASS",
     "cost": 49500000.0,
-    "decisionNumber": "Quyết định số \n327/QĐ-TTKSBT\n ngày 29/5/2026",
-    "acceptanceMembers": "Ds. Tính, \nDs. Thành,\nCn. Huệ,\nCn. Bình",
-    "fundingSource": "Quỹ \nPTHĐSN",
+    "decisionNumber": "Quyết định số 327/QĐ-TTKSBT ngày 29/5/2026",
+    "acceptanceMembers": "Ds. Tính, Ds. Thành, Cn. Huệ, Cn. Bình",
+    "fundingSource": "Quỹ PTHĐSN",
     "deviceStatusAfter": "Tốt",
-    "note": "Linh kiện: Nhớt, bạc đạn, đầu dẫn van lọc ngõ ra khí."
+    "note": "Linh kiện: Nhớt, bạc đạn, đầu dẫn van lọc ngõ ra khí. Đang thực hiện 03 đợt/năm (Hạn HĐ đến 31/12/2026)"
   },
   {
     "code": "TSKD059",
@@ -88,12 +88,12 @@ export const BT_DATA = [
     "year": 2023,
     "maintDate": "2026-08-17",
     "vendor": "Công ty XL nước Gia Hưng Phát DTH",
-    "planContent": "Dịch vụ bảo trì, \nbảo dưỡng, thay thế linh kiện, VT - Dịch vụ bảo trì, \nbảo dưỡng, thay thế linh kiện",
+    "planContent": "Dịch vụ bảo trì, bảo dưỡng, thay thế linh kiện, VT",
     "result": "PASS",
     "cost": 20304000.0,
-    "decisionNumber": "Quyết định số \n429/QĐ-TTKSBT\n ngày 21/7/2026",
-    "acceptanceMembers": "Ds. Tính, \nDs. Lộc,\nCn. Duy,\nCn. Nghĩa",
-    "fundingSource": "Quỹ \nPTHĐSN",
+    "decisionNumber": "Quyết định số 429/QĐ-TTKSBT ngày 21/7/2026",
+    "acceptanceMembers": "Ds. Tính, Ds. Lộc, Cn. Duy, Cn. Nghĩa",
+    "fundingSource": "Quỹ PTHĐSN",
     "deviceStatusAfter": "Tốt",
     "note": "Linh kiện: Thay bộ do hiển thị TDS; Thay bóng đèn UV S150RL-HO; Thay lõi lọc tinh 5 micron; Thay lõi lọc sát khuẩn 0,2 micron"
   }
@@ -460,18 +460,21 @@ export const SC_DATA = [
   {
     "code": "TSKD059",
     "name": "Hệ thống lọc nước RO250l/h",
-    "deptId": 1,
+    "deptId": 11,
     "year": 2023,
     "requestedBy": "Ds. Tính, Ds. Lộc",
+    "requestDate": "2026-02-24",
+    "approvalDate": "2026-02-24",
+    "completedDate": "2026-03-12",
     "issueDescription": "Nắp màng RO bị sự cố, nước tràn ra nền nhà",
     "status": "COMPLETED",
     "cost": 3847500.0,
     "vendor": "Công ty TNHH XL nước Gia Hưng Phát",
     "remedy": "Sửa chữa, thay thế linh kiện (bộ vỏ màng RO 4040)",
-    "parts": "Bộ vỏ màng\n RO 4040",
+    "parts": "Bộ vỏ màng RO 4040",
     "decision": "",
     "members": "Ds. Tính, Ds. Lộc",
-    "funding": "Thu sự\n nghiệp",
+    "funding": "Thu sự nghiệp",
     "statusAfter": "Tốt"
   },
   {
@@ -480,6 +483,9 @@ export const SC_DATA = [
     "deptId": 11,
     "year": 2020,
     "requestedBy": "Ds. Tính, Ds. Lộc, Ds. Ngà",
+    "requestDate": "2026-07-31",
+    "approvalDate": "2026-08-17",
+    "completedDate": "2026-08-24",
     "issueDescription": "Hỏng ko sử dụng được",
     "status": "COMPLETED",
     "cost": 1944000.0,
@@ -488,7 +494,7 @@ export const SC_DATA = [
     "parts": "Bộ phụ tùng đầy đủ Tủ TCW4000AC",
     "decision": "",
     "members": "Ds. Tính, Ds. Lộc, Ds. Ngà",
-    "funding": "Ngân sách NN",
+    "funding": "CT TCMR",
     "statusAfter": "Tốt"
   },
   {
@@ -772,8 +778,10 @@ export async function syncTbytRecords(prisma: PrismaClient) {
       fundingSource: s.funding,
       decisionNumber: s.decision,
       deviceStatusAfter: s.statusAfter,
-      requestDate: new Date('2026-01-15'),
-      completedDate: s.status === 'COMPLETED' ? new Date('2026-06-30') : null
+      proposalDate: (s as any).approvalDate ? new Date((s as any).approvalDate) : ((s as any).requestDate ? new Date((s as any).requestDate) : null),
+      approvalDate: (s as any).approvalDate ? new Date((s as any).approvalDate) : null,
+      requestDate: (s as any).requestDate ? new Date((s as any).requestDate) : new Date('2026-01-15'),
+      completedDate: (s as any).completedDate ? new Date((s as any).completedDate) : (s.status === 'COMPLETED' ? new Date('2026-06-30') : null)
     };
 
     if (existingReq) {
