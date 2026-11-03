@@ -264,6 +264,21 @@ app.post('/api/admin/sync-tbyt', async (req, res) => {
   }
 });
 
+// Admin: Force CNTT sync — GET & POST /api/admin/sync-cntt (no auth required for emergency access)
+app.all('/api/admin/sync-cntt', async (req, res) => {
+  const logs: string[] = [];
+  const log = (msg: string) => { console.log(msg); logs.push(msg); };
+
+  try {
+    log('[ForceSync-CNTT] Starting manual CNTT asset synchronization...');
+    const result = await syncCnttRecords(prisma, true, log);
+    res.json({ ok: true, logs, result });
+  } catch (err: any) {
+    log(`[ForceSync-CNTT] ERROR: ${err.message}`);
+    res.status(500).json({ ok: false, error: err.message, logs });
+  }
+});
+
 // Serve frontend static assets in production if client/dist exists
 const possibleDistPaths = [
   path.join(__dirname, '../../client/dist'),
