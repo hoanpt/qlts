@@ -515,8 +515,13 @@ export default function Assets() {
                     <td className="p-3.5 text-center text-slate-500 font-medium">
                       {(page - 1) * limit + idx + 1}
                     </td>
-                    <td className="p-3.5 font-mono font-bold text-blue-700">
-                      {asset.assetCode}
+                    <td className="p-3.5 font-mono">
+                      <div className="font-bold text-blue-700">{asset.assetCode}</div>
+                      {asset.oldAssetCode && (
+                        <div className="text-[10px] text-amber-700 font-sans font-medium mt-0.5 line-clamp-1" title={`Mã TS cũ: ${asset.oldAssetCode}`}>
+                          Cũ: {asset.oldAssetCode}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3.5">
                       <div className="font-semibold text-slate-900">{asset.name}</div>

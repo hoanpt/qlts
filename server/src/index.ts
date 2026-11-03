@@ -356,6 +356,7 @@ async function autoMigrateAndSeed() {
                   where: { id: asset.id },
                   update: {
                     assetCode: asset.assetCode,
+                    oldAssetCode: asset.oldAssetCode || null,
                     name: asset.name,
                     categoryId: asset.categoryId,
                     departmentId: asset.departmentId,
@@ -385,6 +386,7 @@ async function autoMigrateAndSeed() {
                   create: {
                     id: asset.id,
                     assetCode: asset.assetCode,
+                    oldAssetCode: asset.oldAssetCode || null,
                     name: asset.name,
                     categoryId: asset.categoryId,
                     departmentId: asset.departmentId,
@@ -621,6 +623,7 @@ async function autoMigrateAndSeed() {
     `).catch(() => {});
 
     const tablesToPatch = [
+      { table: 'Asset', column: 'oldAssetCode', type: 'TEXT' },
       { table: 'Asset', column: 'fundingSource', type: 'TEXT' },
       { table: 'Asset', column: 'decisionNumber', type: 'TEXT' },
       { table: 'MaintenanceRequest', column: 'fundingSource', type: 'TEXT' },

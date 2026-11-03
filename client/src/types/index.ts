@@ -29,6 +29,7 @@ export type ManagingUnit = 'TCHC' | 'DUOC' | 'CNTT';
 export interface Asset {
   id: number;
   assetCode: string;
+  oldAssetCode?: string;
   name: string;
   categoryId: number;
   category?: AssetCategory;

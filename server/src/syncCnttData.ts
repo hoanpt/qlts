@@ -15,7 +15,9 @@ export async function syncCnttRecords(prisma: PrismaClient, force: boolean = fal
       OR: [
         { assetCode: { startsWith: 'CNTT-' } },
         { assetCode: { startsWith: 'CNTT -' } },
-        { assetCode: { startsWith: 'PC/' } }
+        { assetCode: { startsWith: 'PC/' } },
+        { assetCode: { startsWith: 'MH/PKĐK' } },
+        { assetCode: { startsWith: 'CPU/PKĐK' } }
       ]
     }
   });
@@ -29,8 +31,8 @@ export async function syncCnttRecords(prisma: PrismaClient, force: boolean = fal
     }
   });
 
-  if (!force && badAssetCount === 0 && currentCnttCount === 925) {
-    console.log('[CNTT Sync] CNTT assets are already clean and up-to-date (925 assets). No sync needed.');
+  if (!force && badAssetCount === 0 && currentCnttCount === 880) {
+    console.log('[CNTT Sync] CNTT assets are already clean and up-to-date (880 assets). No sync needed.');
     return { ok: true, synced: 0, message: 'Already up to date' };
   }
 
@@ -111,6 +113,7 @@ export async function syncCnttRecords(prisma: PrismaClient, force: boolean = fal
     for (const a of batch) {
       const assetData: any = {
         assetCode: a.assetCode,
+        oldAssetCode: a.oldAssetCode || null,
         name: a.name,
         categoryId: 2,
         departmentId: a.departmentId,

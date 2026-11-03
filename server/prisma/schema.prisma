@@ -45,6 +45,7 @@ model AssetCategory {
 model Asset {
   id                Int       @id @default(autoincrement())
   assetCode         String    @unique
+  oldAssetCode      String?   // Mã tài sản cũ (theo biên bản kiểm kê)
   name              String
   categoryId        Int
   category          AssetCategory @relation(fields: [categoryId], references: [id])
