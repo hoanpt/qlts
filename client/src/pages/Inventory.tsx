@@ -3,7 +3,7 @@ import {
   Building2, Printer, Download, Save, RefreshCw, 
   CheckCircle2, AlertTriangle, Users, Calendar, Filter, Search, Check,
   QrCode, UserPlus, Settings, Trash2, Edit2, Plus, ArrowRight, ShieldCheck,
-  Stethoscope, Monitor, Layers, FileText, SlidersHorizontal
+  Stethoscope, Monitor, Layers, FileText, SlidersHorizontal, ArrowUpDown
 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
@@ -76,6 +76,19 @@ export default function Inventory() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [inventoryDate, setInventoryDate] = useState('15/01/2026');
+
+  // Sorting state - Defaults to assetCode ascending (Mã tài sản tăng dần giống Danh sách thiết bị)
+  const [sortBy, setSortBy] = useState<string>('assetCode');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
   
   // Committee form modal state
   const [editingMember, setEditingMember] = useState<Partial<CommitteeMember> | null>(null);
@@ -403,11 +416,50 @@ export default function Inventory() {
     (a.floor || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Sorted Assets (khớp tùy chọn sắp xếp giống trang Danh sách thiết bị)
+  const sortedAssets = [...filteredAssets].sort((a, b) => {
+    let cmp = 0;
+    if (sortBy === 'assetCode') {
+      cmp = (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' });
+    } else if (sortBy === 'oldAssetCode') {
+      cmp = (a.oldAssetCode || '').localeCompare(b.oldAssetCode || '', undefined, { numeric: true, sensitivity: 'base' });
+    } else if (sortBy === 'name') {
+      cmp = (a.name || '').localeCompare(b.name || '', 'vi', { sensitivity: 'base' });
+    } else if (sortBy === 'yearInUse') {
+      cmp = (a.yearInUse || '').localeCompare(b.yearInUse || '', undefined, { numeric: true });
+    } else if (sortBy === 'price' || sortBy === 'originalPrice') {
+      cmp = (a.originalPrice || 0) - (b.originalPrice || 0);
+    } else if (sortBy === 'total') {
+      const totalA = (a.originalPrice || 0) * (a.actualQuantity || 1);
+      const totalB = (b.originalPrice || 0) * (b.actualQuantity || 1);
+      cmp = totalA - totalB;
+    } else if (sortBy === 'unit') {
+      const unitA = a.managingUnit || '';
+      const unitB = b.managingUnit || '';
+      cmp = unitA.localeCompare(unitB, 'vi');
+    } else if (sortBy === 'user' || sortBy === 'department') {
+      const locA = a.locationDetail || a.assignedTo || a.department?.name || '';
+      const locB = b.locationDetail || b.assignedTo || b.department?.name || '';
+      cmp = locA.localeCompare(locB, 'vi');
+    } else if (sortBy === 'status') {
+      cmp = (a.currentStatus || a.status || '').localeCompare(b.currentStatus || b.status || '', 'vi');
+    } else if (sortBy === 'actualQty') {
+      cmp = (a.actualQuantity || 0) - (b.actualQuantity || 0);
+    } else if (sortBy === 'diff') {
+      cmp = (a.quantityDifference || 0) - (b.quantityDifference || 0);
+    } else if (sortBy === 'location') {
+      cmp = (a.location || '').localeCompare(b.location || '', 'vi');
+    } else {
+      cmp = (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' });
+    }
+    return sortOrder === 'asc' ? cmp : -cmp;
+  });
+
   // Totals
-  const totalBookQty = assets.reduce((sum, a) => sum + (a.bookQuantity || 0), 0);
-  const totalActualQty = assets.reduce((sum, a) => sum + (a.actualQuantity || 0), 0);
-  const totalDiffQty = assets.reduce((sum, a) => sum + (a.quantityDifference || 0), 0);
-  const totalValue = assets.reduce((sum, a) => sum + ((a.originalPrice || 0) * (a.actualQuantity || 1)), 0);
+  const totalBookQty = sortedAssets.reduce((sum, a) => sum + (a.bookQuantity || 0), 0);
+  const totalActualQty = sortedAssets.reduce((sum, a) => sum + (a.actualQuantity || 0), 0);
+  const totalDiffQty = sortedAssets.reduce((sum, a) => sum + (a.quantityDifference || 0), 0);
+  const totalValue = sortedAssets.reduce((sum, a) => sum + ((a.originalPrice || 0) * (a.actualQuantity || 1)), 0);
 
   // Dynamic column visibility helpers
   const isCol = (key: string) => visibleColumns.includes(key);
@@ -504,6 +556,8 @@ export default function Inventory() {
                 params.append('inventoryDate', inventoryDate);
                 params.append('signaturesJson', JSON.stringify(signatures));
                 params.append('visibleColumns', visibleColumns.join(','));
+                params.append('sortBy', sortBy);
+                params.append('sortOrder', sortOrder);
 
                 window.open(`/api/export/c53-hd?${params.toString()}`, '_blank');
               }}
@@ -617,8 +671,8 @@ export default function Inventory() {
           </div>
         </div>
 
-        {/* Sub-Filters for Department or Floor */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+        {/* Sub-Filters for Department or Floor, Search, Sort & Date */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
           {inventoryType === 'TCHC_TOANHA' ? (
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Chọn Tầng Tòa Nhà</label>
@@ -635,7 +689,7 @@ export default function Inventory() {
           ) : (
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                {inventoryType === 'BY_DEPT' ? 'Khoa / Phòng cần kiểm kê (*)' : 'Lọc theo Khoa / Phòng sử dụng (Tùy chọn)'}
+                {inventoryType === 'BY_DEPT' ? 'Khoa / Phòng cần kiểm kê (*)' : 'Lọc theo Khoa / Phòng'}
               </label>
               {user?.role === 'DEPARTMENT' ? (
                 <div className="w-full px-3.5 py-2 border border-slate-200 bg-slate-100 rounded-xl text-xs sm:text-sm font-bold text-slate-800">
@@ -666,6 +720,34 @@ export default function Inventory() {
               className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
             />
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-8" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+              Sắp xếp danh sách
+            </label>
+            <select
+              value={`${sortBy}_${sortOrder}`}
+              onChange={e => {
+                const [f, o] = e.target.value.split('_');
+                setSortBy(f);
+                setSortOrder(o as 'asc' | 'desc');
+              }}
+              className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="assetCode_asc">Mã tài sản (A → Z, Tăng dần) ⭐</option>
+              <option value="assetCode_desc">Mã tài sản (Z → A, Giảm dần)</option>
+              <option value="oldAssetCode_asc">Mã số cũ (A → Z)</option>
+              <option value="oldAssetCode_desc">Mã số cũ (Z → A)</option>
+              <option value="name_asc">Tên tài sản (A → Z)</option>
+              <option value="name_desc">Tên tài sản (Z → A)</option>
+              <option value="yearInUse_desc">Năm đưa vào SD (Mới nhất)</option>
+              <option value="yearInUse_asc">Năm đưa vào SD (Cũ nhất)</option>
+              <option value="price_desc">Đơn giá (Cao → Thấp)</option>
+              <option value="price_asc">Đơn giá (Thấp → Cao)</option>
+              <option value="user_asc">Khoa/Phòng & Nơi SD (A → Z)</option>
+              <option value="status_asc">Tình trạng sử dụng</option>
+            </select>
           </div>
 
           <div>
@@ -758,10 +840,90 @@ export default function Inventory() {
             <thead>
               <tr className="bg-slate-100 text-center font-bold border-b border-slate-400 divide-x divide-slate-300">
                 {isCol('stt') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 w-10">STT</th>}
-                {isCol('name') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[200px]">TÀI SẢN</th>}
-                {isCol('oldAssetCode') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[105px]">Mã số cũ</th>}
-                {isCol('assetCode') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[110px]">Mã số mới</th>}
-                {isCol('yearInUse') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[65px]">Năm đưa vào SD</th>}
+                {isCol('name') && (
+                  <th 
+                    rowSpan={hasSubHeader ? 2 : 1} 
+                    onClick={() => handleSort('name')}
+                    className="p-2 min-w-[200px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                    title="Bấm để đổi chiều sắp xếp theo Tên tài sản"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>TÀI SẢN</span>
+                      <span className="print:hidden">
+                        {sortBy === 'name' ? (
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                            {sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                        )}
+                      </span>
+                    </div>
+                  </th>
+                )}
+                {isCol('oldAssetCode') && (
+                  <th 
+                    rowSpan={hasSubHeader ? 2 : 1} 
+                    onClick={() => handleSort('oldAssetCode')}
+                    className="p-2 min-w-[105px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                    title="Bấm để đổi chiều sắp xếp theo Mã số cũ"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>Mã số cũ</span>
+                      <span className="print:hidden">
+                        {sortBy === 'oldAssetCode' ? (
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                            {sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                        )}
+                      </span>
+                    </div>
+                  </th>
+                )}
+                {isCol('assetCode') && (
+                  <th 
+                    rowSpan={hasSubHeader ? 2 : 1} 
+                    onClick={() => handleSort('assetCode')}
+                    className="p-2 min-w-[110px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                    title="Bấm để đổi chiều sắp xếp theo Mã tài sản"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="font-bold text-slate-800">Mã số mới</span>
+                      <span className="print:hidden">
+                        {sortBy === 'assetCode' ? (
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                            {sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                        )}
+                      </span>
+                    </div>
+                  </th>
+                )}
+                {isCol('yearInUse') && (
+                  <th 
+                    rowSpan={hasSubHeader ? 2 : 1} 
+                    onClick={() => handleSort('yearInUse')}
+                    className="p-2 min-w-[65px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                    title="Bấm để đổi chiều sắp xếp theo Năm đưa vào SD"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Năm SD</span>
+                      <span className="print:hidden">
+                        {sortBy === 'yearInUse' ? (
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                            {sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                        )}
+                      </span>
+                    </div>
+                  </th>
+                )}
                 
                 {hasSubHeader && (
                   <th colSpan={qtyCols.length} className="p-1 border-b border-slate-300 bg-slate-100">
@@ -769,11 +931,116 @@ export default function Inventory() {
                   </th>
                 )}
 
-                {isCol('price') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[90px]">Đơn giá (đ)</th>}
-                {isCol('total') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[105px]">Thành tiền (đ)</th>}
-                {isCol('unit') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[100px]">Bộ phận quản lý</th>}
-                {isCol('user') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[130px]">Nơi sử dụng hoặc người SD</th>}
-                {isCol('status') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[110px]">Tình trạng sử dụng</th>}
+                {isCol('price') && (
+                  <th 
+                    rowSpan={hasSubHeader ? 2 : 1} 
+                    onClick={() => handleSort('price')}
+                    className="p-2 min-w-[90px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                    title="Bấm để đổi chiều sắp xếp theo Đơn giá"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Đơn giá (đ)</span>
+                      <span className="print:hidden">
+                        {sortBy === 'price' ? (
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                            {sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                        )}
+                      </span>
+                    </div>
+                  </th>
+                )}
+
+                {isCol('total') && (
+                  <th 
+                    rowSpan={hasSubHeader ? 2 : 1} 
+                    onClick={() => handleSort('total')}
+                    className="p-2 min-w-[105px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                    title="Bấm để đổi chiều sắp xếp theo Thành tiền"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Thành tiền (đ)</span>
+                      <span className="print:hidden">
+                        {sortBy === 'total' ? (
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                            {sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                        )}
+                      </span>
+                    </div>
+                  </th>
+                )}
+
+                {isCol('unit') && (
+                  <th 
+                    rowSpan={hasSubHeader ? 2 : 1} 
+                    onClick={() => handleSort('unit')}
+                    className="p-2 min-w-[100px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                    title="Bấm để đổi chiều sắp xếp theo Bộ phận quản lý"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Bộ phận QL</span>
+                      <span className="print:hidden">
+                        {sortBy === 'unit' ? (
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                            {sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                        )}
+                      </span>
+                    </div>
+                  </th>
+                )}
+
+                {isCol('user') && (
+                  <th 
+                    rowSpan={hasSubHeader ? 2 : 1} 
+                    onClick={() => handleSort('user')}
+                    className="p-2 min-w-[130px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                    title="Bấm để đổi chiều sắp xếp theo Nơi / Người sử dụng"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Nơi sử dụng hoặc người SD</span>
+                      <span className="print:hidden">
+                        {sortBy === 'user' ? (
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                            {sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                        )}
+                      </span>
+                    </div>
+                  </th>
+                )}
+
+                {isCol('status') && (
+                  <th 
+                    rowSpan={hasSubHeader ? 2 : 1} 
+                    onClick={() => handleSort('status')}
+                    className="p-2 min-w-[110px] cursor-pointer hover:bg-slate-200/90 transition select-none group"
+                    title="Bấm để đổi chiều sắp xếp theo Tình trạng sử dụng"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Tình trạng SD</span>
+                      <span className="print:hidden">
+                        {sortBy === 'status' ? (
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-100 text-blue-700 text-xs font-bold shadow-xs">
+                            {sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                        )}
+                      </span>
+                    </div>
+                  </th>
+                )}
+
                 {isCol('location') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[100px]">Nơi TS mới chuyển đến</th>}
                 {isCol('note') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[120px]">Ghi chú</th>}
               </tr>
@@ -784,12 +1051,44 @@ export default function Inventory() {
                     <th className="p-1 min-w-[60px] bg-slate-50 text-slate-800">Sổ sách</th>
                   )}
                   {isCol('actualQty') && (
-                    <th className="p-1 min-w-[65px] bg-blue-50/70 text-blue-900">
-                      {qtyCols.length === 1 ? 'Số lượng' : 'Thực tế'}
+                    <th 
+                      onClick={() => handleSort('actualQty')}
+                      className="p-1 min-w-[65px] bg-blue-50/70 text-blue-900 cursor-pointer hover:bg-blue-100 transition select-none group"
+                      title="Bấm để đổi chiều sắp xếp theo Số lượng thực tế"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>{qtyCols.length === 1 ? 'Số lượng' : 'Thực tế'}</span>
+                        <span className="print:hidden">
+                          {sortBy === 'actualQty' ? (
+                            <span className="inline-flex items-center justify-center w-3 h-3 rounded bg-blue-200 text-blue-800 text-[9px] font-bold">
+                              {sortOrder === 'asc' ? '↑' : '↓'}
+                            </span>
+                          ) : (
+                            <ArrowUpDown className="w-2.5 h-2.5 text-blue-400 opacity-0 group-hover:opacity-100 transition" />
+                          )}
+                        </span>
+                      </div>
                     </th>
                   )}
                   {isCol('diff') && (
-                    <th className="p-1 min-w-[60px] bg-amber-50/70 text-amber-900">Chênh lệch</th>
+                    <th 
+                      onClick={() => handleSort('diff')}
+                      className="p-1 min-w-[60px] bg-amber-50/70 text-amber-900 cursor-pointer hover:bg-amber-100 transition select-none group"
+                      title="Bấm để đổi chiều sắp xếp theo Chênh lệch"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Chênh lệch</span>
+                        <span className="print:hidden">
+                          {sortBy === 'diff' ? (
+                            <span className="inline-flex items-center justify-center w-3 h-3 rounded bg-amber-200 text-amber-800 text-[9px] font-bold">
+                              {sortOrder === 'asc' ? '↑' : '↓'}
+                            </span>
+                          ) : (
+                            <ArrowUpDown className="w-2.5 h-2.5 text-amber-500 opacity-0 group-hover:opacity-100 transition" />
+                          )}
+                        </span>
+                      </div>
+                    </th>
                   )}
                 </tr>
               )}
@@ -811,14 +1110,14 @@ export default function Inventory() {
                     Đang tải danh mục kiểm kê...
                   </td>
                 </tr>
-              ) : filteredAssets.length === 0 ? (
+              ) : sortedAssets.length === 0 ? (
                 <tr>
                   <td colSpan={visibleColumns.length} className="text-center py-16 text-slate-400 font-medium">
                     Không có tài sản nào trong phân loại hoặc khoa phòng được chọn.
                   </td>
                 </tr>
               ) : (
-                filteredAssets.map((asset, idx) => (
+                sortedAssets.map((asset, idx) => (
                   <tr key={asset.id} className="hover:bg-blue-50/30 divide-x divide-slate-200">
                     {isCol('stt') && (
                       <td className="p-2 text-center font-medium text-slate-600">{idx + 1}</td>
@@ -985,7 +1284,7 @@ export default function Inventory() {
             <tfoot>
               <tr className="bg-slate-100 font-bold border-t-2 border-slate-400 divide-x divide-slate-300">
                 <td colSpan={prefixColCount} className="p-2 text-center uppercase tracking-wider">
-                  TỔNG CỘNG ({filteredAssets.length} thiết bị)
+                  TỔNG CỘNG ({sortedAssets.length} thiết bị)
                 </td>
                 {visibleColumns.slice(prefixColCount).map(key => {
                   if (key === 'bookQty') {

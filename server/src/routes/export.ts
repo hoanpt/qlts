@@ -210,7 +210,10 @@ function toColLetter(colIdx: number): string {
 // 2. Xuất biểu mẫu kiểm kê C53-HD chuẩn của CDC Đà Nẵng (Chuẩn 100% biểu mẫu Bộ Tài Chính & Kẻ ô toàn diện)
 router.get('/c53-hd', requireAuth, async (req: any, res) => {
   try {
-    const { departmentId, managingUnit, buildingAsset, floor, inventoryDate, signaturesJson, visibleColumns } = req.query;
+    const { 
+      departmentId, managingUnit, buildingAsset, floor, inventoryDate, signaturesJson, visibleColumns,
+      sortBy = 'assetCode', sortOrder = 'asc' 
+    } = req.query;
     const where: any = {};
 
     if (departmentId) {
@@ -235,12 +238,52 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
       ? await prisma.department.findUnique({ where: { id: parseInt(departmentId as string) } })
       : null;
 
+    const validSortOrder = (sortOrder as string)?.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    let orderBy: any[] = [];
+
+    if (sortBy === 'name') {
+      orderBy = [{ name: validSortOrder }, { assetCode: 'asc' }];
+    } else if (sortBy === 'department' || sortBy === 'user') {
+      orderBy = [{ department: { name: validSortOrder } }, { assetCode: 'asc' }];
+    } else if (sortBy === 'yearInUse') {
+      orderBy = [{ yearInUse: validSortOrder }, { assetCode: 'asc' }];
+    } else if (sortBy === 'status') {
+      orderBy = [{ status: validSortOrder }, { assetCode: 'asc' }];
+    } else if (sortBy === 'price' || sortBy === 'originalPrice') {
+      orderBy = [{ originalPrice: validSortOrder }, { assetCode: 'asc' }];
+    } else if (sortBy === 'oldAssetCode') {
+      orderBy = [{ oldAssetCode: validSortOrder }, { assetCode: 'asc' }];
+    } else {
+      orderBy = [{ assetCode: validSortOrder }];
+    }
+
     const assets = await prisma.asset.findMany({
       where,
       include: { category: true, department: true },
-      orderBy: [
-        { assetCode: 'asc' }
-      ]
+      orderBy
+    });
+
+    // Natural sort in memory to ensure numeric order like VT/PKDK-001, VT/PKDK-002, VT/PKDK-010
+    assets.sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'assetCode') {
+        cmp = (a.assetCode || '').localeCompare(b.assetCode || '', undefined, { numeric: true, sensitivity: 'base' });
+      } else if (sortBy === 'oldAssetCode') {
+        cmp = (a.oldAssetCode || '').localeCompare(b.oldAssetCode || '', undefined, { numeric: true, sensitivity: 'base' });
+      } else if (sortBy === 'name') {
+        cmp = (a.name || '').localeCompare(b.name || '', 'vi', { sensitivity: 'base' });
+      } else if (sortBy === 'yearInUse') {
+        cmp = String(a.yearInUse || '').localeCompare(String(b.yearInUse || ''), undefined, { numeric: true });
+      } else if (sortBy === 'price' || sortBy === 'originalPrice') {
+        cmp = (a.originalPrice || 0) - (b.originalPrice || 0);
+      } else if (sortBy === 'status') {
+        cmp = (a.status || '').localeCompare(b.status || '', 'vi');
+      } else if (sortBy === 'department' || sortBy === 'user') {
+        const locA = a.locationDetail || a.assignedTo || a.department?.name || '';
+        const locB = b.locationDetail || b.assignedTo || b.department?.name || '';
+        cmp = locA.localeCompare(locB, 'vi');
+      }
+      return validSortOrder === 'asc' ? cmp : -cmp;
     });
 
     // Custom signatures if passed from client
