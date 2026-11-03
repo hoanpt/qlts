@@ -36,6 +36,7 @@ export default function AssetForm() {
 
   const [formData, setFormData] = useState({
     assetCode: '',
+    oldAssetCode: '',
     name: '',
     categoryId: isCntt ? '2' : isTchc ? '3' : '1',
     departmentId: '1',
@@ -95,6 +96,7 @@ export default function AssetForm() {
 
             setFormData({
               assetCode: assetData.assetCode || '',
+              oldAssetCode: assetData.oldAssetCode || '',
               name: assetData.name || '',
               categoryId: (assetData.categoryId || matchedCat?.id || 1).toString(),
               departmentId: (assetData.departmentId || 1).toString(),
@@ -311,30 +313,44 @@ export default function AssetForm() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Mã tài sản (*)</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="Ví dụ: TSPK008, MH/PKDK-001, BXN 03..."
+                  placeholder="Ví dụ: VT/PKDK-001, TSPK008, BXN 03..."
                   value={formData.assetCode}
                   onChange={e => setFormData({ ...formData, assetCode: e.target.value })}
                   className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-semibold"
                 />
               </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Tên thiết bị / Tài sản (*)</label>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                  <span>Mã tài sản cũ</span>
+                  <span className="text-[10px] font-normal text-amber-700 lowercase">(trước chuyển đổi / kiểm kê)</span>
+                </label>
                 <input 
                   type="text" 
-                  required
-                  placeholder="Ví dụ: Máy xét nghiệm sinh hóa tự động, Màn hình LCD Dell 19.5 inch..."
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-medium"
+                  placeholder="Ví dụ: MH/PKDK-029; CPU/PKDK-029 hoặc mã sổ sách cũ"
+                  value={formData.oldAssetCode}
+                  onChange={e => setFormData({ ...formData, oldAssetCode: e.target.value })}
+                  className="w-full border border-amber-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 font-medium text-amber-950 bg-amber-50/40"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Tên thiết bị / Tài sản (*)</label>
+              <input 
+                type="text" 
+                required
+                placeholder="Ví dụ: Máy xét nghiệm sinh hóa tự động, Bộ máy vi tính Dell Optiplex..."
+                value={formData.name}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-medium"
+              />
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

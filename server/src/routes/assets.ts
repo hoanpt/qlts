@@ -23,6 +23,7 @@ router.get('/', requireAuth, async (req: any, res) => {
     where.OR = [
       { name: { contains: q, mode: 'insensitive' } },
       { assetCode: { contains: q, mode: 'insensitive' } },
+      { oldAssetCode: { contains: q, mode: 'insensitive' } },
       { locationDetail: { contains: q, mode: 'insensitive' } },
       { specifications: { contains: q, mode: 'insensitive' } }
     ];
@@ -131,7 +132,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 router.post('/', requireAuth, async (req: any, res) => {
   try {
     const {
-      assetCode, name, categoryId, departmentId, location, locationDetail,
+      assetCode, oldAssetCode, name, categoryId, departmentId, location, locationDetail,
       assignedTo, yearInUse, originalPrice, currentValue, depreciationRate,
       manufacturer, countryOfOrigin, specifications, status, managingUnit,
       floor, buildingAsset, bookQuantity, actualQuantity, quantityDifference,
@@ -147,6 +148,7 @@ router.post('/', requireAuth, async (req: any, res) => {
 
     const data: any = {
       assetCode: (assetCode || '').trim(),
+      oldAssetCode: oldAssetCode ? oldAssetCode.trim() : null,
       name: (name || '').trim(),
       categoryId: parseInt(categoryId) || 1,
       departmentId: parseInt(departmentId) || 1,
@@ -205,7 +207,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
     }
 
     const {
-      assetCode, name, categoryId, departmentId, location, locationDetail,
+      assetCode, oldAssetCode, name, categoryId, departmentId, location, locationDetail,
       assignedTo, yearInUse, originalPrice, currentValue, depreciationRate,
       manufacturer, countryOfOrigin, specifications, status, managingUnit,
       floor, buildingAsset, bookQuantity, actualQuantity, quantityDifference,
@@ -214,6 +216,7 @@ router.put('/:id', requireAuth, async (req: any, res) => {
 
     const data: any = {};
     if (assetCode !== undefined) data.assetCode = assetCode.trim();
+    if (oldAssetCode !== undefined) data.oldAssetCode = oldAssetCode ? oldAssetCode.trim() : null;
     if (name !== undefined) data.name = name.trim();
     if (categoryId !== undefined) data.categoryId = parseInt(categoryId);
     if (departmentId !== undefined) data.departmentId = parseInt(departmentId);
