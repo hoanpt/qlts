@@ -195,10 +195,22 @@ router.get('/assets', requireAuth, async (req: any, res) => {
   }
 });
 
+// Helper: convert 1-based index to Excel column letter (e.g. 1 -> A, 13 -> M, 27 -> AA)
+function toColLetter(colIdx: number): string {
+  let letter = '';
+  let temp = colIdx;
+  while (temp > 0) {
+    const rem = (temp - 1) % 26;
+    letter = String.fromCharCode(65 + rem) + letter;
+    temp = Math.floor((temp - 1) / 26);
+  }
+  return letter;
+}
+
 // 2. Xuất biểu mẫu kiểm kê C53-HD chuẩn của CDC Đà Nẵng (Chuẩn 100% biểu mẫu Bộ Tài Chính & Kẻ ô toàn diện)
 router.get('/c53-hd', requireAuth, async (req: any, res) => {
   try {
-    const { departmentId, managingUnit, buildingAsset, floor, inventoryDate, signaturesJson } = req.query;
+    const { departmentId, managingUnit, buildingAsset, floor, inventoryDate, signaturesJson, visibleColumns } = req.query;
     const where: any = {};
 
     if (departmentId) {
@@ -258,6 +270,165 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
       unitTitle = 'THIẾT BỊ HÀNH CHÍNH & CÔNG CỤ DỤNG CỤ (PHÒNG TCHC QUẢN LÝ)';
     }
 
+    const ALL_COLUMNS: Record<string, {
+      key: string;
+      header: string;
+      width: number;
+      align: 'left' | 'center' | 'right';
+      bold?: boolean;
+      numFmt?: string;
+      getValue: (a: any, idx: number) => any;
+      isTotal?: boolean;
+    }> = {
+      stt: {
+        key: 'stt',
+        header: 'STT',
+        width: 5.5,
+        align: 'center',
+        getValue: (_, idx) => idx + 1
+      },
+      name: {
+        key: 'name',
+        header: 'TÀI SẢN',
+        width: 36,
+        align: 'left',
+        getValue: (a) => a.name + (a.specifications ? `\n- ${a.specifications}` : '')
+      },
+      oldAssetCode: {
+        key: 'oldAssetCode',
+        header: 'Mã số cũ',
+        width: 16,
+        align: 'center',
+        getValue: (a) => a.oldAssetCode || ''
+      },
+      assetCode: {
+        key: 'assetCode',
+        header: 'Mã số mới',
+        width: 17,
+        align: 'center',
+        bold: true,
+        getValue: (a) => a.assetCode || ''
+      },
+      yearInUse: {
+        key: 'yearInUse',
+        header: 'Năm đưa vào SD',
+        width: 10,
+        align: 'center',
+        getValue: (a) => a.yearInUse || ''
+      },
+      bookQty: {
+        key: 'bookQty',
+        header: 'Sổ sách (SL)',
+        width: 10,
+        align: 'center',
+        getValue: (a) => a.bookQuantity || 1,
+        isTotal: true
+      },
+      actualQty: {
+        key: 'actualQty',
+        header: 'Thực tế KK (SL)',
+        width: 11,
+        align: 'center',
+        bold: true,
+        getValue: (a) => (a.actualQuantity !== undefined && a.actualQuantity !== null ? a.actualQuantity : (a.bookQuantity || 1)),
+        isTotal: true
+      },
+      diff: {
+        key: 'diff',
+        header: 'Chênh lệch',
+        width: 10,
+        align: 'center',
+        getValue: (a) => {
+          const bQty = a.bookQuantity || 1;
+          const aQty = a.actualQuantity !== undefined && a.actualQuantity !== null ? a.actualQuantity : bQty;
+          const diff = a.quantityDifference !== undefined && a.quantityDifference !== null ? a.quantityDifference : (aQty - bQty);
+          return diff !== 0 ? diff : '-';
+        },
+        isTotal: true
+      },
+      price: {
+        key: 'price',
+        header: 'Đơn giá (đ)',
+        width: 14,
+        align: 'right',
+        numFmt: '#,##0',
+        getValue: (a) => (a.originalPrice && a.originalPrice > 0 ? a.originalPrice : '')
+      },
+      total: {
+        key: 'total',
+        header: 'Thành tiền (đ)',
+        width: 16,
+        align: 'right',
+        bold: true,
+        numFmt: '#,##0',
+        getValue: (a) => {
+          const aQty = a.actualQuantity !== undefined && a.actualQuantity !== null ? a.actualQuantity : (a.bookQuantity || 1);
+          const price = a.originalPrice || 0;
+          return price > 0 ? price * aQty : '';
+        },
+        isTotal: true
+      },
+      unit: {
+        key: 'unit',
+        header: 'Bộ phận quản lý',
+        width: 14,
+        align: 'center',
+        getValue: (a) => (a.managingUnit === 'DUOC' ? 'Khoa Dược' : a.managingUnit === 'CNTT' ? 'Tổ CNTT' : 'Phòng TCHC')
+      },
+      user: {
+        key: 'user',
+        header: 'Nơi sử dụng / Người SD',
+        width: 22,
+        align: 'left',
+        getValue: (a) => a.locationDetail || a.assignedTo || a.department?.name || ''
+      },
+      status: {
+        key: 'status',
+        header: 'Tình trạng sử dụng',
+        width: 14,
+        align: 'center',
+        getValue: (a) => {
+          return a.status === 'DANG_SU_DUNG' ? 'Đang sử dụng' :
+                 a.status === 'HONG' ? 'Hỏng' :
+                 a.status === 'CHO_THANH_LY' ? 'ĐN thanh lý' :
+                 a.status === 'BAO_TRI' ? 'Bảo trì' : 
+                 a.status === 'KHONG_SU_DUNG' ? 'Không sử dụng' : (a.status || 'Đang sử dụng');
+        }
+      },
+      location: {
+        key: 'location',
+        header: 'Nơi TS mới chuyển đến',
+        width: 15,
+        align: 'center',
+        getValue: (a) => a.location || 'Cơ sở 1'
+      },
+      note: {
+        key: 'note',
+        header: 'Ghi chú',
+        width: 18,
+        align: 'left',
+        getValue: (a) => a.note || ''
+      }
+    };
+
+    const DEFAULT_KEYS = [
+      'stt', 'name', 'oldAssetCode', 'assetCode', 'yearInUse',
+      'actualQty', 'price', 'total', 'unit', 'user', 'status', 'location', 'note'
+    ];
+
+    let activeKeys = DEFAULT_KEYS;
+    if (visibleColumns && typeof visibleColumns === 'string') {
+      const parsed = visibleColumns.split(',').map((k: string) => k.trim()).filter((k: string) => ALL_COLUMNS[k]);
+      if (parsed.length > 0) {
+        if (!parsed.includes('stt')) parsed.unshift('stt');
+        if (!parsed.includes('name')) parsed.splice(1, 0, 'name');
+        activeKeys = parsed;
+      }
+    }
+
+    const columns = activeKeys.map(k => ALL_COLUMNS[k]);
+    const totalCols = columns.length;
+
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('BienBan_C53_HD', {
       views: [{ showGridLines: true }]
@@ -272,107 +443,92 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
       margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 }
     };
 
-    // Row 1-2: Header (Đơn vị & Mẫu số C53-HD)
-    const r1 = sheet.addRow([
-      'Đơn vị: Trung tâm Kiểm soát bệnh tật TP Đà Nẵng', '', '', '', '', '', '', '', '', '', '', '', 'Mẫu số C53-HD'
-    ]);
-    r1.font = { name: 'Times New Roman', size: 11, bold: true };
-    r1.getCell(13).alignment = { horizontal: 'right' };
-    sheet.mergeCells(`A1:F1`);
-    sheet.mergeCells(`M1:M1`);
+    const lastColLetter = toColLetter(totalCols);
+    const midColLetter = toColLetter(Math.max(2, Math.floor(totalCols / 2)));
 
-    const r2 = sheet.addRow([
-      'Mã ĐV SDNS: 1127644', '', '', '', '', '', '', '', '', '', '', '', '(Ban hành theo TT số 107/2017/TT-BTC)'
-    ]);
-    r2.font = { name: 'Times New Roman', size: 10 };
+    // Row 1-2: Header (Đơn vị & Mẫu số C53-HD)
+    const r1 = sheet.addRow(new Array(totalCols).fill(''));
+    r1.getCell(1).value = 'Đơn vị: Trung tâm Kiểm soát bệnh tật TP Đà Nẵng';
+    r1.getCell(1).font = { name: 'Times New Roman', size: 11, bold: true };
+    r1.getCell(totalCols).value = 'Mẫu số C53-HD';
+    r1.getCell(totalCols).font = { name: 'Times New Roman', size: 11, bold: true };
+    r1.getCell(totalCols).alignment = { horizontal: 'right' };
+    sheet.mergeCells(`A1:${midColLetter}1`);
+
+    const r2 = sheet.addRow(new Array(totalCols).fill(''));
+    r2.getCell(1).value = 'Mã ĐV SDNS: 1127644';
     r2.getCell(1).font = { name: 'Times New Roman', size: 10, bold: true };
-    r2.getCell(13).font = { name: 'Times New Roman', size: 9, italic: true };
-    r2.getCell(13).alignment = { horizontal: 'right' };
-    sheet.mergeCells(`A2:F2`);
+    r2.getCell(totalCols).value = '(Ban hành theo TT số 107/2017/TT-BTC)';
+    r2.getCell(totalCols).font = { name: 'Times New Roman', size: 9, italic: true };
+    r2.getCell(totalCols).alignment = { horizontal: 'right' };
+    sheet.mergeCells(`A2:${midColLetter}2`);
 
     sheet.addRow([]);
 
     // Row 4-5: Title
-    const titleRow = sheet.addRow([
-      'BIÊN BẢN KIỂM KÊ TÀI SẢN CỐ ĐỊNH NĂM 2026', '', '', '', '', '', '', '', '', '', '', '', ''
-    ]);
+    const titleRow = sheet.addRow(new Array(totalCols).fill(''));
+    titleRow.getCell(1).value = 'BIÊN BẢN KIỂM KÊ TÀI SẢN CỐ ĐỊNH NĂM 2026';
     titleRow.font = { name: 'Times New Roman', size: 14, bold: true };
     titleRow.alignment = { horizontal: 'center' };
-    sheet.mergeCells(`A${titleRow.number}:M${titleRow.number}`);
+    sheet.mergeCells(`A${titleRow.number}:${lastColLetter}${titleRow.number}`);
 
-    const subTitleRow = sheet.addRow([
-      unitTitle, '', '', '', '', '', '', '', '', '', '', '', ''
-    ]);
+    const subTitleRow = sheet.addRow(new Array(totalCols).fill(''));
+    subTitleRow.getCell(1).value = unitTitle;
     subTitleRow.font = { name: 'Times New Roman', size: 12, bold: true, color: { argb: 'FF1E40AF' } };
     subTitleRow.alignment = { horizontal: 'center' };
-    sheet.mergeCells(`A${subTitleRow.number}:M${subTitleRow.number}`);
+    sheet.mergeCells(`A${subTitleRow.number}:${lastColLetter}${subTitleRow.number}`);
 
     sheet.addRow([]);
 
     // Preambles (Căn cứ & Thành phần hội đồng)
     const p1 = sheet.addRow(['- Căn cứ Quyết định số 05/QĐ-TTKSBT ngày 05/01/2026 của Giám đốc CDC Đà Nẵng về việc thành lập Hội đồng kiểm kê tài sản năm 2026.']);
     p1.font = { name: 'Times New Roman', size: 10, italic: true };
-    sheet.mergeCells(`A${p1.number}:M${p1.number}`);
+    sheet.mergeCells(`A${p1.number}:${lastColLetter}${p1.number}`);
 
     const p2 = sheet.addRow(['- Nguồn kinh phí hình thành: Ngân sách Nhà nước cấp & Quỹ phát triển hoạt động sự nghiệp']);
     p2.font = { name: 'Times New Roman', size: 10, italic: true };
-    sheet.mergeCells(`A${p2.number}:M${p2.number}`);
+    sheet.mergeCells(`A${p2.number}:${lastColLetter}${p2.number}`);
 
     const p3 = sheet.addRow([`- Hôm nay, ngày ${reportDateStr}, tại Trung tâm Kiểm soát bệnh tật TP Đà Nẵng, chúng tôi gồm:`]);
     p3.font = { name: 'Times New Roman', size: 10, italic: true };
-    sheet.mergeCells(`A${p3.number}:M${p3.number}`);
+    sheet.mergeCells(`A${p3.number}:${lastColLetter}${p3.number}`);
 
     const m1 = sheet.addRow(['1. ' + directorName, '', '', 'Giám đốc', '', '', '', '', '', '', '', 'Chủ tịch Hội đồng', '']);
     m1.font = { name: 'Times New Roman', size: 10 };
     sheet.mergeCells(`A${m1.number}:C${m1.number}`);
     sheet.mergeCells(`D${m1.number}:H${m1.number}`);
-    sheet.mergeCells(`I${m1.number}:M${m1.number}`);
+    sheet.mergeCells(`I${m1.number}:${lastColLetter}${m1.number}`);
 
     const m2 = sheet.addRow(['2. ' + tcktName, '', '', 'Trưởng phòng TC - KT', '', '', '', '', '', '', '', 'Ủy viên', '']);
     m2.font = { name: 'Times New Roman', size: 10 };
     sheet.mergeCells(`A${m2.number}:C${m2.number}`);
     sheet.mergeCells(`D${m2.number}:H${m2.number}`);
-    sheet.mergeCells(`I${m2.number}:M${m2.number}`);
+    sheet.mergeCells(`I${m2.number}:${lastColLetter}${m2.number}`);
 
     const m3 = sheet.addRow(['3. ' + (isCntt ? 'Ông. Trần Văn Vũ' : leaderName), '', '', (isCntt ? 'Trưởng phòng KHNV' : leaderTitle), '', '', '', '', '', '', '', (isCntt ? 'Tổ trưởng' : 'Tổ trưởng Chuyên trách'), '']);
     m3.font = { name: 'Times New Roman', size: 10 };
     sheet.mergeCells(`A${m3.number}:C${m3.number}`);
     sheet.mergeCells(`D${m3.number}:H${m3.number}`);
-    sheet.mergeCells(`I${m3.number}:M${m3.number}`);
+    sheet.mergeCells(`I${m3.number}:${lastColLetter}${m3.number}`);
 
     const m4 = sheet.addRow([`4. Đại diện: ${dept ? dept.name : 'Các Khoa / Phòng'}`, '', '', (dept ? (leaderName || 'Trưởng / Phó Đơn vị') : 'Trưởng / Phó Đơn vị'), '', '', '', '', '', '', '', 'Đại diện Khoa', '']);
     m4.font = { name: 'Times New Roman', size: 10 };
     sheet.mergeCells(`A${m4.number}:C${m4.number}`);
     sheet.mergeCells(`D${m4.number}:H${m4.number}`);
-    sheet.mergeCells(`I${m4.number}:M${m4.number}`);
+    sheet.mergeCells(`I${m4.number}:${lastColLetter}${m4.number}`);
 
     const m5 = sheet.addRow(['5. Thành viên tổ kiểm kê: ' + reporterNames.replace(/\n/g, ', ')]);
     m5.font = { name: 'Times New Roman', size: 10 };
-    sheet.mergeCells(`A${m5.number}:M${m5.number}`);
+    sheet.mergeCells(`A${m5.number}:${lastColLetter}${m5.number}`);
 
     const p4 = sheet.addRow(['Cùng tiến hành kiểm kê tài sản, kết quả như sau:']);
     p4.font = { name: 'Times New Roman', size: 10, italic: true, bold: true };
-    sheet.mergeCells(`A${p4.number}:M${p4.number}`);
+    sheet.mergeCells(`A${p4.number}:${lastColLetter}${p4.number}`);
 
     sheet.addRow([]);
 
-    // Table Header 1 (Rows 16-17)
-    const headerRow1 = sheet.addRow([
-      'STT',
-      'TÀI SẢN',
-      'Mã số cũ',
-      'Mã số mới',
-      'Năm đưa vào SD',
-      'Thực tế KK (SL)',
-      'Đơn giá (đ)',
-      'Thành tiền (đ)',
-      'Bộ phận quản lý',
-      'Nơi sử dụng / Người SD',
-      'Tình trạng sử dụng',
-      'Nơi TS mới chuyển đến',
-      'Ghi chú'
-    ]);
-
+    // Table Header 1
+    const headerRow1 = sheet.addRow(columns.map(c => c.header));
     headerRow1.height = 28;
     headerRow1.eachCell(cell => {
       cell.font = { name: 'Times New Roman', size: 9.5, bold: true };
@@ -381,9 +537,18 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
       cell.border = THIN_BORDER;
     });
 
-    const headerRow2 = sheet.addRow([
-      'A', 'B', 'C', 'D', 'E', '1', '2', '3', '4', '5', '6', '7', '8'
-    ]);
+    // Reference Row
+    let letterCode = 65; // 'A'
+    let numCode = 1;
+    const refRowValues = columns.map(c => {
+      if (['stt', 'name', 'oldAssetCode', 'assetCode', 'yearInUse'].includes(c.key)) {
+        return String.fromCharCode(letterCode++);
+      } else {
+        return (numCode++).toString();
+      }
+    });
+
+    const headerRow2 = sheet.addRow(refRowValues);
     headerRow2.height = 18;
     headerRow2.eachCell(cell => {
       cell.font = { name: 'Times New Roman', size: 9, italic: true, bold: true };
@@ -392,143 +557,127 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
       cell.border = THIN_BORDER;
     });
 
-    sheet.columns = [
-      { key: 'stt', width: 5.5 },
-      { key: 'name', width: 36 },
-      { key: 'oldAssetCode', width: 16 },
-      { key: 'assetCode', width: 17 },
-      { key: 'yearInUse', width: 9 },
-      { key: 'actualQty', width: 10 },
-      { key: 'price', width: 14 },
-      { key: 'total', width: 15 },
-      { key: 'unit', width: 14 },
-      { key: 'user', width: 22 },
-      { key: 'status', width: 14 },
-      { key: 'location', width: 15 },
-      { key: 'note', width: 18 }
-    ];
+    sheet.columns = columns.map(c => ({ key: c.key, width: c.width }));
 
     let totalBookQty = 0;
     let totalActualQty = 0;
+    let totalDiffQty = 0;
     let totalValue = 0;
 
     assets.forEach((a, idx) => {
       const bQty = a.bookQuantity || 1;
       const aQty = a.actualQuantity !== undefined && a.actualQuantity !== null ? a.actualQuantity : bQty;
+      const diff = a.quantityDifference !== undefined && a.quantityDifference !== null ? a.quantityDifference : (aQty - bQty);
       const price = a.originalPrice || 0;
       const itemTotal = price > 0 ? price * aQty : 0;
 
       totalBookQty += bQty;
       totalActualQty += aQty;
+      totalDiffQty += diff;
       totalValue += itemTotal;
 
-      const unitText = a.managingUnit === 'DUOC' ? 'Khoa Dược' :
-                       a.managingUnit === 'CNTT' ? 'Tổ CNTT' : 'Phòng TCHC';
-
-      const statusText = a.status === 'DANG_SU_DUNG' ? 'Đang sử dụng' :
-                         a.status === 'HONG' ? 'Hỏng' :
-                         a.status === 'CHO_THANH_LY' ? 'ĐN thanh lý' :
-                         a.status === 'BAO_TRI' ? 'Bảo trì' : 
-                         a.status === 'KHONG_SU_DUNG' ? 'Không sử dụng' : (a.status || 'Đang sử dụng');
-
-      const row = sheet.addRow([
-        idx + 1,
-        a.name + (a.specifications ? `\n- ${a.specifications}` : ''),
-        a.oldAssetCode || '',
-        a.assetCode,
-        a.yearInUse || '',
-        aQty,
-        price > 0 ? price : '',
-        itemTotal > 0 ? itemTotal : '',
-        unitText,
-        a.locationDetail || a.assignedTo || a.department?.name || '',
-        statusText,
-        a.location || 'Cơ sở 1',
-        a.note || ''
-      ]);
-
+      const rowValues = columns.map(c => c.getValue(a, idx));
+      const row = sheet.addRow(rowValues);
       row.height = a.specifications ? 32 : 20;
-      row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-      row.getCell(2).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
-      row.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
-      row.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
-      row.getCell(4).font = { name: 'Times New Roman', size: 9.5, bold: true };
-      row.getCell(5).alignment = { horizontal: 'center', vertical: 'middle' };
-      row.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
-      row.getCell(6).font = { name: 'Times New Roman', size: 9.5, bold: true };
-      row.getCell(7).alignment = { horizontal: 'right', vertical: 'middle' };
-      row.getCell(7).numFmt = '#,##0';
-      row.getCell(8).alignment = { horizontal: 'right', vertical: 'middle' };
-      row.getCell(8).numFmt = '#,##0';
-      row.getCell(8).font = { name: 'Times New Roman', size: 9.5, bold: true };
-      row.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
-      row.getCell(10).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
-      row.getCell(11).alignment = { horizontal: 'center', vertical: 'middle' };
-      row.getCell(12).alignment = { horizontal: 'center', vertical: 'middle' };
-      row.getCell(13).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
 
-      row.eachCell({ includeEmpty: true }, cell => {
+      columns.forEach((c, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.alignment = { 
+          horizontal: c.align, 
+          vertical: 'middle', 
+          wrapText: c.align === 'left' 
+        };
+        if (c.bold) cell.font = { name: 'Times New Roman', size: 9.5, bold: true };
+        else cell.font = { name: 'Times New Roman', size: 9.5 };
+        if (c.numFmt) cell.numFmt = c.numFmt;
         cell.border = THIN_BORDER;
-        cell.font = cell.font || { name: 'Times New Roman', size: 9.5 };
       });
     });
 
     // Summary Row
-    const sumRow = sheet.addRow([
-      'TỔNG CỘNG', '', '', '', '',
-      totalActualQty,
-      '',
-      totalValue > 0 ? totalValue : '',
-      '', '', '', '', ''
-    ]);
+    const firstNumColIdx = columns.findIndex(c => ['bookQty', 'actualQty', 'price', 'total'].includes(c.key));
+    const mergeUpTo = firstNumColIdx > 0 ? firstNumColIdx : Math.min(2, totalCols);
 
+    const sumValues = columns.map((c, colIdx) => {
+      if (colIdx === 0) return 'TỔNG CỘNG';
+      if (colIdx < mergeUpTo) return '';
+      if (c.key === 'bookQty') return totalBookQty;
+      if (c.key === 'actualQty') return totalActualQty;
+      if (c.key === 'diff') return totalDiffQty !== 0 ? totalDiffQty : '-';
+      if (c.key === 'total') return totalValue > 0 ? totalValue : '';
+      return '';
+    });
+
+    const sumRow = sheet.addRow(sumValues);
     sumRow.height = 24;
-    sheet.mergeCells(`A${sumRow.number}:E${sumRow.number}`);
+    
+    if (mergeUpTo > 1) {
+      sheet.mergeCells(`A${sumRow.number}:${toColLetter(mergeUpTo)}${sumRow.number}`);
+    }
     sumRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     sumRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: true };
-    sumRow.getCell(6).font = { name: 'Times New Roman', size: 10, bold: true };
-    sumRow.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
-    sumRow.getCell(8).font = { name: 'Times New Roman', size: 10, bold: true };
-    sumRow.getCell(8).alignment = { horizontal: 'right', vertical: 'middle' };
-    sumRow.getCell(8).numFmt = '#,##0';
 
-    sumRow.eachCell({ includeEmpty: true }, cell => {
+    columns.forEach((c, colIdx) => {
+      const cell = sumRow.getCell(colIdx + 1);
       cell.border = DOUBLE_BOTTOM_BORDER;
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+      if (['bookQty', 'actualQty', 'diff', 'total'].includes(c.key)) {
+        cell.font = { name: 'Times New Roman', size: 10, bold: true };
+        cell.alignment = { horizontal: c.align, vertical: 'middle' };
+        if (c.numFmt) cell.numFmt = c.numFmt;
+      }
     });
 
     sheet.addRow([]);
 
     // Signatures Section (4 Columns)
-    const dateRow = sheet.addRow(['', '', '', '', '', '', '', '', '', 'Đà Nẵng, ngày ' + reportDateStr]);
-    dateRow.font = { name: 'Times New Roman', size: 10, italic: true };
-    dateRow.getCell(10).alignment = { horizontal: 'center' };
-    sheet.mergeCells(`J${dateRow.number}:M${dateRow.number}`);
+    const c1End = Math.max(1, Math.floor(totalCols * 0.25));
+    const c2Start = c1End + 1;
+    const c2End = Math.max(c2Start, Math.floor(totalCols * 0.50));
+    const c3Start = c2End + 1;
+    const c3End = Math.max(c3Start, Math.floor(totalCols * 0.75));
+    const c4Start = c3End + 1;
+    const c4End = totalCols;
 
-    const sigTitleRow = sheet.addRow([
-      'THÀNH VIÊN TỔ KIỂM KÊ', '', '',
-      (dept ? `ĐẠI DIỆN ${dept.name.toUpperCase()}` : leaderTitle.toUpperCase()), '', '',
-      'TRƯỞNG PHÒNG TC - KT', '', '',
-      'CHỦ TỊCH HỘI ĐỒNG'
-    ]);
+    const l1S = toColLetter(1);
+    const l1E = toColLetter(c1End);
+    const l2S = toColLetter(c2Start);
+    const l2E = toColLetter(c2End);
+    const l3S = toColLetter(c3Start);
+    const l3E = toColLetter(c3End);
+    const l4S = toColLetter(c4Start);
+    const l4E = toColLetter(c4End);
+
+    const dateRow = sheet.addRow(new Array(totalCols).fill(''));
+    dateRow.getCell(c4Start).value = 'Đà Nẵng, ngày ' + reportDateStr;
+    dateRow.font = { name: 'Times New Roman', size: 10, italic: true };
+    dateRow.getCell(c4Start).alignment = { horizontal: 'center' };
+    if (c4End > c4Start) {
+      sheet.mergeCells(`${l4S}${dateRow.number}:${l4E}${dateRow.number}`);
+    }
+
+    const sigTitleRow = sheet.addRow(new Array(totalCols).fill(''));
+    sigTitleRow.getCell(1).value = 'THÀNH VIÊN TỔ KIỂM KÊ';
+    sigTitleRow.getCell(c2Start).value = (dept ? `ĐẠI DIỆN ${dept.name.toUpperCase()}` : leaderTitle.toUpperCase());
+    sigTitleRow.getCell(c3Start).value = 'TRƯỞNG PHÒNG TC - KT';
+    sigTitleRow.getCell(c4Start).value = 'CHỦ TỊCH HỘI ĐỒNG';
     sigTitleRow.font = { name: 'Times New Roman', size: 10, bold: true };
-    sheet.mergeCells(`A${sigTitleRow.number}:C${sigTitleRow.number}`);
-    sheet.mergeCells(`D${sigTitleRow.number}:F${sigTitleRow.number}`);
-    sheet.mergeCells(`G${sigTitleRow.number}:I${sigTitleRow.number}`);
-    sheet.mergeCells(`J${sigTitleRow.number}:M${sigTitleRow.number}`);
+    if (c1End > 1) sheet.mergeCells(`${l1S}${sigTitleRow.number}:${l1E}${sigTitleRow.number}`);
+    if (c2End > c2Start) sheet.mergeCells(`${l2S}${sigTitleRow.number}:${l2E}${sigTitleRow.number}`);
+    if (c3End > c3Start) sheet.mergeCells(`${l3S}${sigTitleRow.number}:${l3E}${sigTitleRow.number}`);
+    if (c4End > c4Start) sheet.mergeCells(`${l4S}${sigTitleRow.number}:${l4E}${sigTitleRow.number}`);
     sigTitleRow.eachCell(c => { c.alignment = { horizontal: 'center', vertical: 'middle' }; });
 
-    const sigNoteRow = sheet.addRow([
-      '(Ký, ghi rõ họ tên)', '', '',
-      '(Ký, ghi rõ họ tên)', '', '',
-      '(Ký, ghi rõ họ tên)', '', '',
-      '(Ký, ghi rõ họ tên, đóng dấu)'
-    ]);
+    const sigNoteRow = sheet.addRow(new Array(totalCols).fill(''));
+    sigNoteRow.getCell(1).value = '(Ký, ghi rõ họ tên)';
+    sigNoteRow.getCell(c2Start).value = '(Ký, ghi rõ họ tên)';
+    sigNoteRow.getCell(c3Start).value = '(Ký, ghi rõ họ tên)';
+    sigNoteRow.getCell(c4Start).value = '(Ký, ghi rõ họ tên, đóng dấu)';
     sigNoteRow.font = { name: 'Times New Roman', size: 9, italic: true };
-    sheet.mergeCells(`A${sigNoteRow.number}:C${sigNoteRow.number}`);
-    sheet.mergeCells(`D${sigNoteRow.number}:F${sigNoteRow.number}`);
-    sheet.mergeCells(`G${sigNoteRow.number}:I${sigNoteRow.number}`);
-    sheet.mergeCells(`J${sigNoteRow.number}:M${sigNoteRow.number}`);
+    if (c1End > 1) sheet.mergeCells(`${l1S}${sigNoteRow.number}:${l1E}${sigNoteRow.number}`);
+    if (c2End > c2Start) sheet.mergeCells(`${l2S}${sigNoteRow.number}:${l2E}${sigNoteRow.number}`);
+    if (c3End > c3Start) sheet.mergeCells(`${l3S}${sigNoteRow.number}:${l3E}${sigNoteRow.number}`);
+    if (c4End > c4Start) sheet.mergeCells(`${l4S}${sigNoteRow.number}:${l4E}${sigNoteRow.number}`);
     sigNoteRow.eachCell(c => { c.alignment = { horizontal: 'center', vertical: 'middle' }; });
 
     // Spacer rows for physical signatures
@@ -536,25 +685,25 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
     sheet.addRow([]);
     sheet.addRow([]);
 
-    const sigNamesRow = sheet.addRow([
-      reporterNames.split('\n')[0] || '- Trần Văn Vũ', '', '',
-      leaderName, '', '',
-      tcktName, '', '',
-      directorName
-    ]);
+    const sigNamesRow = sheet.addRow(new Array(totalCols).fill(''));
+    sigNamesRow.getCell(1).value = reporterNames.split('\n')[0] || '- Trần Văn Vũ';
+    sigNamesRow.getCell(c2Start).value = leaderName;
+    sigNamesRow.getCell(c3Start).value = tcktName;
+    sigNamesRow.getCell(c4Start).value = directorName;
     sigNamesRow.font = { name: 'Times New Roman', size: 10, bold: true };
-    sheet.mergeCells(`A${sigNamesRow.number}:C${sigNamesRow.number}`);
-    sheet.mergeCells(`D${sigNamesRow.number}:F${sigNamesRow.number}`);
-    sheet.mergeCells(`G${sigNamesRow.number}:I${sigNamesRow.number}`);
-    sheet.mergeCells(`J${sigNamesRow.number}:M${sigNamesRow.number}`);
+    if (c1End > 1) sheet.mergeCells(`${l1S}${sigNamesRow.number}:${l1E}${sigNamesRow.number}`);
+    if (c2End > c2Start) sheet.mergeCells(`${l2S}${sigNamesRow.number}:${l2E}${sigNamesRow.number}`);
+    if (c3End > c3Start) sheet.mergeCells(`${l3S}${sigNamesRow.number}:${l3E}${sigNamesRow.number}`);
+    if (c4End > c4Start) sheet.mergeCells(`${l4S}${sigNamesRow.number}:${l4E}${sigNamesRow.number}`);
     sigNamesRow.eachCell(c => { c.alignment = { horizontal: 'center', vertical: 'middle' }; });
 
     // Additional reporter members
     const otherMembers = reporterNames.split('\n').slice(1);
     otherMembers.forEach((mem: string) => {
-      const memRow = sheet.addRow([mem.trim()]);
+      const memRow = sheet.addRow(new Array(totalCols).fill(''));
+      memRow.getCell(1).value = mem.trim();
       memRow.font = { name: 'Times New Roman', size: 10 };
-      sheet.mergeCells(`A${memRow.number}:C${memRow.number}`);
+      if (c1End > 1) sheet.mergeCells(`${l1S}${memRow.number}:${l1E}${memRow.number}`);
     });
 
     const filePrefix = dept ? dept.code : (isCntt ? 'CNTT' : managingUnit || 'CDC');

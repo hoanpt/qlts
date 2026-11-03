@@ -3,7 +3,7 @@ import {
   Building2, Printer, Download, Save, RefreshCw, 
   CheckCircle2, AlertTriangle, Users, Calendar, Filter, Search, Check,
   QrCode, UserPlus, Settings, Trash2, Edit2, Plus, ArrowRight, ShieldCheck,
-  Stethoscope, Monitor, Layers, FileText
+  Stethoscope, Monitor, Layers, FileText, SlidersHorizontal
 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
@@ -11,6 +11,45 @@ import { useAuth } from '../contexts/AuthContext';
 import { Department, Asset, CommitteeMember, STATUS_LABELS } from '../types';
 
 const FLOORS = ['Tất cả tầng', 'Tầng Hầm', 'Tầng 1', 'Tầng 2', 'Tầng 3', 'Tầng 4', 'Tầng 5', 'Tầng 6', 'Tầng 7'];
+
+export interface ColumnOption {
+  key: string;
+  label: string;
+  group: 'basic' | 'quantity' | 'financial' | 'location' | 'status';
+  required?: boolean;
+  desc?: string;
+}
+
+export const ALL_INVENTORY_COLUMNS: ColumnOption[] = [
+  { key: 'stt', label: 'STT', group: 'basic', required: true, desc: 'Số thứ tự' },
+  { key: 'name', label: 'Tên tài sản & thông số', group: 'basic', required: true, desc: 'Tên thiết bị, quy cách kỹ thuật' },
+  { key: 'oldAssetCode', label: 'Mã số cũ', group: 'basic', desc: 'Mã tài sản giai đoạn trước' },
+  { key: 'assetCode', label: 'Mã số mới (Mã TS)', group: 'basic', desc: 'Mã tài sản chuẩn hóa 2026' },
+  { key: 'yearInUse', label: 'Năm đưa vào SD', group: 'basic', desc: 'Năm bắt đầu sử dụng tài sản' },
+  { key: 'bookQty', label: 'Số lượng Sổ sách', group: 'quantity', desc: 'Số lượng theo dõi sổ sách kế toán' },
+  { key: 'actualQty', label: 'Số lượng Thực tế KK', group: 'quantity', desc: 'Số lượng kiểm kê thực tế tại đơn vị' },
+  { key: 'diff', label: 'Chênh lệch (Thừa/Thiếu)', group: 'quantity', desc: 'Chênh lệch Thực tế - Sổ sách' },
+  { key: 'price', label: 'Đơn giá (đ)', group: 'financial', desc: 'Nguyên giá tài sản' },
+  { key: 'total', label: 'Thành tiền (đ)', group: 'financial', desc: 'Tổng giá trị theo số lượng thực tế' },
+  { key: 'unit', label: 'Bộ phận quản lý', group: 'location', desc: 'Tổ CNTT, Khoa Dược, hoặc Phòng TCHC' },
+  { key: 'user', label: 'Nơi / Người sử dụng', group: 'location', desc: 'Khoa phòng, phòng ban, người được giao' },
+  { key: 'status', label: 'Tình trạng sử dụng', group: 'status', desc: 'Đang sử dụng, Hỏng, Bảo trì, Chờ thanh lý...' },
+  { key: 'location', label: 'Nơi TS mới chuyển đến', group: 'location', desc: 'Cơ sở 1, Cơ sở 2 hoặc địa điểm điều chuyển' },
+  { key: 'note', label: 'Ghi chú', group: 'status', desc: 'Ghi chú bổ sung khi kiểm kê' },
+];
+
+export const DEFAULT_VISIBLE_COLUMNS = [
+  'stt', 'name', 'oldAssetCode', 'assetCode', 'yearInUse',
+  'actualQty', 'price', 'total', 'unit', 'user', 'status', 'location', 'note'
+];
+
+export const COLUMN_GROUPS = [
+  { id: 'basic', title: '1. Thông tin định danh tài sản' },
+  { id: 'quantity', title: '2. Số lượng & Kiểm đếm' },
+  { id: 'financial', title: '3. Giá trị & Tài chính' },
+  { id: 'location', title: '4. Quản lý & Vị trí sử dụng' },
+  { id: 'status', title: '5. Tình trạng & Theo dõi' },
+];
 
 export default function Inventory() {
   const { user } = useAuth();
@@ -68,6 +107,51 @@ export default function Inventory() {
     setShowSignaturesModal(false);
   };
 
+  // Column Selection State - Persisted per inventoryType so CNTT, DUOC, TCHC remember their choices independently
+  const getSavedColumns = (type: string) => {
+    try {
+      const saved = localStorage.getItem(`inventory_columns_${type}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_VISIBLE_COLUMNS;
+  };
+
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => getSavedColumns(defaultInvType));
+  const [showColumnModal, setShowColumnModal] = useState(false);
+  const [tempColumns, setTempColumns] = useState<string[]>(visibleColumns);
+
+  // Sync columns when inventoryType changes
+  useEffect(() => {
+    const cols = getSavedColumns(inventoryType);
+    setVisibleColumns(cols);
+    setTempColumns(cols);
+  }, [inventoryType]);
+
+  const handleSaveColumns = (newCols: string[]) => {
+    let safeCols = [...newCols];
+    if (!safeCols.includes('stt')) safeCols.unshift('stt');
+    if (!safeCols.includes('name')) safeCols.splice(1, 0, 'name');
+    setVisibleColumns(safeCols);
+    localStorage.setItem(`inventory_columns_${inventoryType}`, JSON.stringify(safeCols));
+    setShowColumnModal(false);
+  };
+
+  const toggleTempColumn = (key: string) => {
+    if (key === 'stt' || key === 'name') return; // Mandatory/locked
+    setTempColumns(prev => {
+      if (prev.includes(key)) {
+        return prev.filter(k => k !== key);
+      } else {
+        const allKeys = ALL_INVENTORY_COLUMNS.map(c => c.key);
+        const next = [...prev, key];
+        return next.sort((a, b) => allKeys.indexOf(a) - allKeys.indexOf(b));
+      }
+    });
+  };
+
   const handleExportPdf = async () => {
     const element = document.getElementById('inventory-c53-document');
     if (!element) return;
@@ -75,8 +159,14 @@ export default function Inventory() {
     setExportingPdf(true);
     setTimeout(async () => {
       try {
-        const deptPrefix = currentDept ? currentDept.code : (inventoryType === 'CNTT' ? 'CNTT' : 'CDC');
-        const filename = `BienBan_KiemKe_CNTT_${deptPrefix}_2026.pdf`;
+        const typePrefix = 
+          inventoryType === 'DUOC' ? 'DUOC' :
+          inventoryType === 'CNTT' ? 'CNTT' :
+          inventoryType === 'TCHC_HC' ? 'TCHC_HC' :
+          inventoryType === 'TCHC_TOANHA' ? `TCHC_Tang_${selectedFloor.replace(/\s+/g, '_')}` :
+          'KHOA_PHONG';
+        const deptPrefix = currentDept ? currentDept.code : typePrefix;
+        const filename = `BienBan_KiemKe_${deptPrefix}_2026.pdf`;
 
         const opt = {
           margin: [6, 6, 6, 6],
@@ -319,6 +409,25 @@ export default function Inventory() {
   const totalDiffQty = assets.reduce((sum, a) => sum + (a.quantityDifference || 0), 0);
   const totalValue = assets.reduce((sum, a) => sum + ((a.originalPrice || 0) * (a.actualQuantity || 1)), 0);
 
+  // Dynamic column visibility helpers
+  const isCol = (key: string) => visibleColumns.includes(key);
+
+  const idColKeys = ['stt', 'name', 'oldAssetCode', 'assetCode', 'yearInUse'];
+  let lCode = 65;
+  let nCode = 1;
+  const colRefMap: Record<string, string> = {};
+  visibleColumns.forEach(key => {
+    if (idColKeys.includes(key)) {
+      colRefMap[key] = String.fromCharCode(lCode++);
+    } else {
+      colRefMap[key] = String(nCode++);
+    }
+  });
+
+  const qtyCols = ['bookQty', 'actualQty', 'diff'].filter(c => isCol(c));
+  const hasSubHeader = qtyCols.length > 0;
+  const prefixColCount = visibleColumns.filter(k => idColKeys.includes(k)).length;
+
   // Form title
   const formTitle = 
     inventoryType === 'DUOC' ? 'TRANG THIẾT BỊ Y TẾ (KHOA DƯỢC QUẢN LÝ)' :
@@ -359,6 +468,18 @@ export default function Inventory() {
             </button>
 
             <button
+              onClick={() => {
+                setTempColumns(visibleColumns);
+                setShowColumnModal(true);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer"
+              title="Tùy chọn hiển thị các cột trong biên bản kiểm kê và file xuất Excel / PDF"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-purple-600" />
+              <span>Tùy chọn cột ({visibleColumns.length}/15)</span>
+            </button>
+
+            <button
               onClick={handleSaveInventory}
               disabled={saving || loading}
               className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-semibold shadow transition cursor-pointer"
@@ -382,11 +503,12 @@ export default function Inventory() {
                 if (selectedDeptId) params.append('departmentId', selectedDeptId);
                 params.append('inventoryDate', inventoryDate);
                 params.append('signaturesJson', JSON.stringify(signatures));
+                params.append('visibleColumns', visibleColumns.join(','));
 
                 window.open(`/api/export/c53-hd?${params.toString()}`, '_blank');
               }}
               className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow transition cursor-pointer"
-              title="Xuất file Excel (.xlsx) chuẩn khổ ngang A4 theo biểu mẫu"
+              title="Xuất file Excel (.xlsx) chuẩn khổ ngang A4 theo biểu mẫu và các cột đã chọn"
             >
               <Download className="w-4 h-4" /> Xuất Excel (.xlsx)
             </button>
@@ -630,173 +752,230 @@ export default function Inventory() {
           </div>
         </div>
 
-        {/* Bảng Dữ Liệu Kiểm Kê 13 Cột Chuẩn Mẫu Excel CDC Đà Nẵng */}
+        {/* Bảng Dữ Liệu Kiểm Kê Tùy Biến Cột (Chuẩn C53-HD) */}
         <div className="overflow-x-auto border border-slate-400 rounded-lg">
           <table className="w-full text-xs font-sans border-collapse text-left">
             <thead>
               <tr className="bg-slate-100 text-center font-bold border-b border-slate-400 divide-x divide-slate-300">
-                <th rowSpan={2} className="p-2 w-10">STT</th>
-                <th rowSpan={2} className="p-2 min-w-[200px]">TÀI SẢN</th>
-                <th rowSpan={2} className="p-2 min-w-[105px]">Mã số cũ</th>
-                <th rowSpan={2} className="p-2 min-w-[110px]">Mã số mới</th>
-                <th rowSpan={2} className="p-2 min-w-[65px]">Năm đưa vào SD</th>
-                <th colSpan={1} className="p-1 border-b border-slate-300">Thực tế KK</th>
-                <th rowSpan={2} className="p-2 min-w-[90px]">Đơn giá (đ)</th>
-                <th rowSpan={2} className="p-2 min-w-[105px]">Thành tiền (đ)</th>
-                <th rowSpan={2} className="p-2 min-w-[100px]">Bộ phận quản lý</th>
-                <th rowSpan={2} className="p-2 min-w-[130px]">Nơi sử dụng hoặc người SD</th>
-                <th rowSpan={2} className="p-2 min-w-[110px]">Tình trạng sử dụng</th>
-                <th rowSpan={2} className="p-2 min-w-[100px]">Nơi TS mới chuyển đến</th>
-                <th rowSpan={2} className="p-2 min-w-[120px]">Ghi chú</th>
+                {isCol('stt') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 w-10">STT</th>}
+                {isCol('name') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[200px]">TÀI SẢN</th>}
+                {isCol('oldAssetCode') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[105px]">Mã số cũ</th>}
+                {isCol('assetCode') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[110px]">Mã số mới</th>}
+                {isCol('yearInUse') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[65px]">Năm đưa vào SD</th>}
+                
+                {hasSubHeader && (
+                  <th colSpan={qtyCols.length} className="p-1 border-b border-slate-300 bg-slate-100">
+                    {qtyCols.length === 1 && isCol('actualQty') ? 'Thực tế KK' : 'Số lượng tài sản'}
+                  </th>
+                )}
+
+                {isCol('price') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[90px]">Đơn giá (đ)</th>}
+                {isCol('total') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[105px]">Thành tiền (đ)</th>}
+                {isCol('unit') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[100px]">Bộ phận quản lý</th>}
+                {isCol('user') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[130px]">Nơi sử dụng hoặc người SD</th>}
+                {isCol('status') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[110px]">Tình trạng sử dụng</th>}
+                {isCol('location') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[100px]">Nơi TS mới chuyển đến</th>}
+                {isCol('note') && <th rowSpan={hasSubHeader ? 2 : 1} className="p-2 min-w-[120px]">Ghi chú</th>}
               </tr>
-              <tr className="bg-slate-100 text-center font-bold border-b border-slate-400 divide-x divide-slate-300">
-                <th className="p-1 min-w-[65px] bg-blue-50/70 text-blue-900">Số lượng</th>
-              </tr>
-              {/* Reference Row: A, B, C, D, E, 1, 2, 3, 4, 5, 6, 7, 8 */}
+
+              {hasSubHeader && (
+                <tr className="bg-slate-100 text-center font-bold border-b border-slate-400 divide-x divide-slate-300">
+                  {isCol('bookQty') && (
+                    <th className="p-1 min-w-[60px] bg-slate-50 text-slate-800">Sổ sách</th>
+                  )}
+                  {isCol('actualQty') && (
+                    <th className="p-1 min-w-[65px] bg-blue-50/70 text-blue-900">
+                      {qtyCols.length === 1 ? 'Số lượng' : 'Thực tế'}
+                    </th>
+                  )}
+                  {isCol('diff') && (
+                    <th className="p-1 min-w-[60px] bg-amber-50/70 text-amber-900">Chênh lệch</th>
+                  )}
+                </tr>
+              )}
+
+              {/* Reference Row: A, B, C... 1, 2, 3... */}
               <tr className="bg-slate-200 text-center text-[10px] font-bold border-b border-slate-400 divide-x divide-slate-300 text-slate-700">
-                <td className="p-1">A</td>
-                <td className="p-1">B</td>
-                <td className="p-1">C</td>
-                <td className="p-1">D</td>
-                <td className="p-1">E</td>
-                <td className="p-1 bg-blue-100/60">1</td>
-                <td className="p-1">2</td>
-                <td className="p-1">3</td>
-                <td className="p-1">4</td>
-                <td className="p-1">5</td>
-                <td className="p-1">6</td>
-                <td className="p-1">7</td>
-                <td className="p-1">8</td>
+                {visibleColumns.map(key => (
+                  <td key={key} className={`p-1 ${key === 'actualQty' ? 'bg-blue-100/60' : ''}`}>
+                    {colRefMap[key]}
+                  </td>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-300">
               {loading ? (
                 <tr>
-                  <td colSpan={13} className="text-center py-16 text-slate-400">
+                  <td colSpan={visibleColumns.length} className="text-center py-16 text-slate-400">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
                     Đang tải danh mục kiểm kê...
                   </td>
                 </tr>
               ) : filteredAssets.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="text-center py-16 text-slate-400 font-medium">
+                  <td colSpan={visibleColumns.length} className="text-center py-16 text-slate-400 font-medium">
                     Không có tài sản nào trong phân loại hoặc khoa phòng được chọn.
                   </td>
                 </tr>
               ) : (
                 filteredAssets.map((asset, idx) => (
                   <tr key={asset.id} className="hover:bg-blue-50/30 divide-x divide-slate-200">
-                    <td className="p-2 text-center font-medium text-slate-600">{idx + 1}</td>
-                    <td className="p-2 font-semibold text-slate-900">
-                      <div>{asset.name}</div>
-                      {asset.specifications && (
-                        <div className="text-[10px] text-slate-500 font-normal">{asset.specifications}</div>
-                      )}
-                    </td>
-                    <td className="p-2 font-mono text-center text-amber-800 text-[11px] font-medium">
-                      {asset.oldAssetCode || '—'}
-                    </td>
-                    <td className="p-2 font-mono font-bold text-blue-700 text-center">
-                      {asset.assetCode}
-                    </td>
-                    <td className="p-2 text-center text-slate-700">{asset.yearInUse || '—'}</td>
+                    {isCol('stt') && (
+                      <td className="p-2 text-center font-medium text-slate-600">{idx + 1}</td>
+                    )}
+                    {isCol('name') && (
+                      <td className="p-2 font-semibold text-slate-900">
+                        <div>{asset.name}</div>
+                        {asset.specifications && (
+                          <div className="text-[10px] text-slate-500 font-normal">{asset.specifications}</div>
+                        )}
+                      </td>
+                    )}
+                    {isCol('oldAssetCode') && (
+                      <td className="p-2 font-mono text-center text-amber-800 text-[11px] font-medium">
+                        {asset.oldAssetCode || '—'}
+                      </td>
+                    )}
+                    {isCol('assetCode') && (
+                      <td className="p-2 font-mono font-bold text-blue-700 text-center">
+                        {asset.assetCode}
+                      </td>
+                    )}
+                    {isCol('yearInUse') && (
+                      <td className="p-2 text-center text-slate-700">{asset.yearInUse || '—'}</td>
+                    )}
                     
-                    {/* Cột 1: Thực tế KK (Số lượng) */}
-                    <td className="p-1 text-center bg-blue-50/20">
-                      {exportingPdf ? (
-                        <span className="font-bold text-slate-900">{asset.actualQuantity}</span>
-                      ) : (
-                        <>
-                          <span className="hidden print:inline font-bold text-slate-900">{asset.actualQuantity}</span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={asset.actualQuantity}
-                            onChange={e => handleQuantityChange(asset.id, e.target.value)}
-                            className="print:hidden w-14 text-center font-bold text-blue-900 bg-white border border-blue-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none"
-                          />
-                        </>
-                      )}
-                    </td>
+                    {/* Sổ sách */}
+                    {isCol('bookQty') && (
+                      <td className="p-2 text-center text-slate-700 font-medium">
+                        {asset.bookQuantity || 1}
+                      </td>
+                    )}
 
-                    {/* Cột 2: Đơn giá */}
-                    <td className="p-2 text-right text-slate-700 font-mono">
-                      {asset.originalPrice ? Number(asset.originalPrice).toLocaleString('vi-VN') : '—'}
-                    </td>
+                    {/* Thực tế KK (Số lượng) */}
+                    {isCol('actualQty') && (
+                      <td className="p-1 text-center bg-blue-50/20">
+                        {exportingPdf ? (
+                          <span className="font-bold text-slate-900">{asset.actualQuantity}</span>
+                        ) : (
+                          <>
+                            <span className="hidden print:inline font-bold text-slate-900">{asset.actualQuantity}</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={asset.actualQuantity}
+                              onChange={e => handleQuantityChange(asset.id, e.target.value)}
+                              className="print:hidden w-14 text-center font-bold text-blue-900 bg-white border border-blue-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                          </>
+                        )}
+                      </td>
+                    )}
 
-                    {/* Cột 3: Thành tiền */}
-                    <td className="p-2 text-right font-bold text-slate-900 font-mono">
-                      {asset.originalPrice 
-                        ? (Number(asset.originalPrice) * (asset.actualQuantity || 1)).toLocaleString('vi-VN')
-                        : '—'}
-                    </td>
+                    {/* Chênh lệch */}
+                    {isCol('diff') && (
+                      <td className={`p-2 text-center font-bold ${
+                        (asset.quantityDifference || 0) > 0 ? 'text-emerald-700' :
+                        (asset.quantityDifference || 0) < 0 ? 'text-rose-700' : 'text-slate-500'
+                      }`}>
+                        {(asset.quantityDifference || 0) !== 0
+                          ? ((asset.quantityDifference || 0) > 0 ? `+${asset.quantityDifference}` : asset.quantityDifference)
+                          : '0'}
+                      </td>
+                    )}
 
-                    {/* Cột 4: Bộ phận quản lý */}
-                    <td className="p-2 text-slate-700 text-center">
-                      {asset.managingUnit === 'DUOC' ? 'Khoa Dược' :
-                       asset.managingUnit === 'CNTT' ? 'Tổ CNTT' :
-                       asset.source || asset.department?.name || 'Phòng TCHC'}
-                    </td>
+                    {/* Đơn giá */}
+                    {isCol('price') && (
+                      <td className="p-2 text-right text-slate-700 font-mono">
+                        {asset.originalPrice ? Number(asset.originalPrice).toLocaleString('vi-VN') : '—'}
+                      </td>
+                    )}
 
-                    {/* Cột 5: Nơi sử dụng */}
-                    <td className="p-2 text-slate-700">
-                      <div>{asset.locationDetail || asset.assignedTo || asset.department?.name || 'Tại đơn vị'}</div>
-                    </td>
+                    {/* Thành tiền */}
+                    {isCol('total') && (
+                      <td className="p-2 text-right font-bold text-slate-900 font-mono">
+                        {asset.originalPrice 
+                          ? (Number(asset.originalPrice) * (asset.actualQuantity || 1)).toLocaleString('vi-VN')
+                          : '—'}
+                      </td>
+                    )}
 
-                    {/* Cột 6: Tình trạng sử dụng */}
-                    <td className="p-1 text-center">
-                      {exportingPdf ? (
-                        <span className="font-medium text-slate-900">
-                          {asset.currentStatus === 'DANG_SU_DUNG' ? 'Đang sử dụng' :
-                           asset.currentStatus === 'HONG' ? 'Hỏng' :
-                           asset.currentStatus === 'CHO_THANH_LY' ? 'ĐN thanh lý' :
-                           asset.currentStatus === 'BAO_TRI' ? 'Bảo trì' :
-                           asset.currentStatus === 'KHONG_SU_DUNG' ? 'Không sử dụng' : (asset.currentStatus || 'Đang sử dụng')}
-                        </span>
-                      ) : (
-                        <>
-                          <span className="hidden print:inline font-medium text-slate-900">
+                    {/* Bộ phận quản lý */}
+                    {isCol('unit') && (
+                      <td className="p-2 text-slate-700 text-center">
+                        {asset.managingUnit === 'DUOC' ? 'Khoa Dược' :
+                         asset.managingUnit === 'CNTT' ? 'Tổ CNTT' :
+                         asset.source || asset.department?.name || 'Phòng TCHC'}
+                      </td>
+                    )}
+
+                    {/* Nơi sử dụng */}
+                    {isCol('user') && (
+                      <td className="p-2 text-slate-700">
+                        <div>{asset.locationDetail || asset.assignedTo || asset.department?.name || 'Tại đơn vị'}</div>
+                      </td>
+                    )}
+
+                    {/* Tình trạng sử dụng */}
+                    {isCol('status') && (
+                      <td className="p-1 text-center">
+                        {exportingPdf ? (
+                          <span className="font-medium text-slate-900">
                             {asset.currentStatus === 'DANG_SU_DUNG' ? 'Đang sử dụng' :
                              asset.currentStatus === 'HONG' ? 'Hỏng' :
                              asset.currentStatus === 'CHO_THANH_LY' ? 'ĐN thanh lý' :
                              asset.currentStatus === 'BAO_TRI' ? 'Bảo trì' :
                              asset.currentStatus === 'KHONG_SU_DUNG' ? 'Không sử dụng' : (asset.currentStatus || 'Đang sử dụng')}
                           </span>
-                          <select
-                            value={asset.currentStatus}
-                            onChange={e => handleStatusChange(asset.id, e.target.value)}
-                            className="print:hidden w-full text-xs border border-slate-200 rounded px-1.5 py-1 bg-white font-medium focus:ring-1 focus:ring-blue-500"
-                          >
-                            <option value="DANG_SU_DUNG">Đang sử dụng</option>
-                            <option value="HONG">Hỏng</option>
-                            <option value="BAO_TRI">Bảo trì</option>
-                            <option value="CHO_THANH_LY">ĐN thanh lý</option>
-                            <option value="KHONG_SU_DUNG">Không sử dụng</option>
-                          </select>
-                        </>
-                      )}
-                    </td>
+                        ) : (
+                          <>
+                            <span className="hidden print:inline font-medium text-slate-900">
+                              {asset.currentStatus === 'DANG_SU_DUNG' ? 'Đang sử dụng' :
+                               asset.currentStatus === 'HONG' ? 'Hỏng' :
+                               asset.currentStatus === 'CHO_THANH_LY' ? 'ĐN thanh lý' :
+                               asset.currentStatus === 'BAO_TRI' ? 'Bảo trì' :
+                               asset.currentStatus === 'KHONG_SU_DUNG' ? 'Không sử dụng' : (asset.currentStatus || 'Đang sử dụng')}
+                            </span>
+                            <select
+                              value={asset.currentStatus}
+                              onChange={e => handleStatusChange(asset.id, e.target.value)}
+                              className="print:hidden w-full text-xs border border-slate-200 rounded px-1.5 py-1 bg-white font-medium focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="DANG_SU_DUNG">Đang sử dụng</option>
+                              <option value="HONG">Hỏng</option>
+                              <option value="BAO_TRI">Bảo trì</option>
+                              <option value="CHO_THANH_LY">ĐN thanh lý</option>
+                              <option value="KHONG_SU_DUNG">Không sử dụng</option>
+                            </select>
+                          </>
+                        )}
+                      </td>
+                    )}
 
-                    {/* Cột 7: Nơi chuyển đến */}
-                    <td className="p-2 text-center text-slate-600">{asset.location || 'Cơ sở 1'}</td>
+                    {/* Nơi chuyển đến */}
+                    {isCol('location') && (
+                      <td className="p-2 text-center text-slate-600">{asset.location || 'Cơ sở 1'}</td>
+                    )}
 
-                    {/* Cột 8: Ghi chú */}
-                    <td className="p-1">
-                      {exportingPdf ? (
-                        <span className="text-[11px] text-slate-800">{asset.customNote || ''}</span>
-                      ) : (
-                        <>
-                          <span className="hidden print:inline text-[11px] text-slate-800">{asset.customNote || ''}</span>
-                          <input
-                            type="text"
-                            value={asset.customNote || ''}
-                            onChange={e => handleNoteChange(asset.id, e.target.value)}
-                            placeholder="Ghi chú..."
-                            className="print:hidden w-full text-xs border border-slate-200 rounded px-1.5 py-1 bg-white focus:ring-1 focus:ring-blue-500"
-                          />
-                        </>
-                      )}
-                    </td>
+                    {/* Ghi chú */}
+                    {isCol('note') && (
+                      <td className="p-1">
+                        {exportingPdf ? (
+                          <span className="text-[11px] text-slate-800">{asset.customNote || ''}</span>
+                        ) : (
+                          <>
+                            <span className="hidden print:inline text-[11px] text-slate-800">{asset.customNote || ''}</span>
+                            <input
+                              type="text"
+                              value={asset.customNote || ''}
+                              onChange={e => handleNoteChange(asset.id, e.target.value)}
+                              placeholder="Ghi chú..."
+                              className="print:hidden w-full text-xs border border-slate-200 rounded px-1.5 py-1 bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -805,11 +984,35 @@ export default function Inventory() {
             {/* Tổng cộng footer */}
             <tfoot>
               <tr className="bg-slate-100 font-bold border-t-2 border-slate-400 divide-x divide-slate-300">
-                <td colSpan={5} className="p-2 text-center uppercase tracking-wider">TỔNG CỘNG ({filteredAssets.length} thiết bị)</td>
-                <td className="p-2 text-center text-blue-900 bg-blue-100/50">{totalActualQty}</td>
-                <td className="p-2"></td>
-                <td className="p-2 text-right font-mono text-blue-900">{totalValue > 0 ? totalValue.toLocaleString('vi-VN') + ' đ' : '—'}</td>
-                <td colSpan={5} className="p-2"></td>
+                <td colSpan={prefixColCount} className="p-2 text-center uppercase tracking-wider">
+                  TỔNG CỘNG ({filteredAssets.length} thiết bị)
+                </td>
+                {visibleColumns.slice(prefixColCount).map(key => {
+                  if (key === 'bookQty') {
+                    return <td key={key} className="p-2 text-center text-slate-800">{totalBookQty}</td>;
+                  }
+                  if (key === 'actualQty') {
+                    return <td key={key} className="p-2 text-center text-blue-900 bg-blue-100/50">{totalActualQty}</td>;
+                  }
+                  if (key === 'diff') {
+                    return (
+                      <td key={key} className="p-2 text-center font-bold text-slate-800">
+                        {totalDiffQty !== 0 ? (totalDiffQty > 0 ? `+${totalDiffQty}` : totalDiffQty) : '0'}
+                      </td>
+                    );
+                  }
+                  if (key === 'price') {
+                    return <td key={key} className="p-2"></td>;
+                  }
+                  if (key === 'total') {
+                    return (
+                      <td key={key} className="p-2 text-right font-mono text-blue-900">
+                        {totalValue > 0 ? totalValue.toLocaleString('vi-VN') + ' đ' : '—'}
+                      </td>
+                    );
+                  }
+                  return <td key={key} className="p-2"></td>;
+                })}
               </tr>
             </tfoot>
           </table>
@@ -1193,6 +1396,155 @@ export default function Inventory() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 6: TÙY CHỌN CỘT HIỂN THỊ VÀO TRONG BIÊN BẢN KIỂM KÊ (C53-HD)         */}
+      {/* ========================================================================= */}
+      {showColumnModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                  <SlidersHorizontal className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg text-slate-900">
+                    Tùy chọn cột Biên bản kiểm kê C53-HD
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Áp dụng cho: <span className="font-semibold text-purple-700">
+                      {inventoryType === 'CNTT' ? 'Tổ CNTT' :
+                       inventoryType === 'DUOC' ? 'Khoa Dược (TBYT)' :
+                       inventoryType === 'TCHC_HC' ? 'Phòng TCHC (Hành chính)' :
+                       inventoryType === 'TCHC_TOANHA' ? 'Phòng TCHC (Hạ tầng Tòa nhà)' : 'Khoa / Phòng'}
+                    </span> (Lưu riêng theo từng khối)
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowColumnModal(false)}
+                className="p-1.5 hover:bg-slate-200/60 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Presets */}
+            <div className="p-4 border-b border-slate-100 bg-slate-50 space-y-2">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Gợi ý mẫu cột nhanh:
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTempColumns(DEFAULT_VISIBLE_COLUMNS)}
+                  className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  ⭐ Chuẩn CDC 13 cột (Khuyên dùng)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTempColumns(ALL_INVENTORY_COLUMNS.map(c => c.key))}
+                  className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  📋 Đầy đủ 15 cột (Kèm Sổ sách & Chênh lệch)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTempColumns(['stt', 'name', 'assetCode', 'actualQty', 'user', 'status', 'note'])}
+                  className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  ⚡ Rút gọn kiểm đếm hiện trường (7 cột)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTempColumns(['stt', 'name', 'assetCode', 'actualQty', 'price', 'total', 'unit', 'user', 'status', 'note'])}
+                  className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  💰 Báo cáo Giá trị & Kế toán (10 cột)
+                </button>
+              </div>
+            </div>
+
+            {/* Column Checkboxes grouped */}
+            <div className="p-5 overflow-y-auto space-y-5">
+              {COLUMN_GROUPS.map(grp => {
+                const groupCols = ALL_INVENTORY_COLUMNS.filter(c => c.group === grp.id);
+                return (
+                  <div key={grp.id} className="space-y-2">
+                    <div className="text-xs font-bold text-slate-800 flex items-center justify-between border-b border-slate-100 pb-1">
+                      <span>{grp.title}</span>
+                      <span className="text-[11px] text-slate-400 font-normal">
+                        {groupCols.filter(c => tempColumns.includes(c.key)).length}/{groupCols.length} đang bật
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {groupCols.map(col => {
+                        const isChecked = tempColumns.includes(col.key);
+                        const isLocked = !!col.required;
+                        return (
+                          <label
+                            key={col.key}
+                            className={`flex items-start gap-2.5 p-2.5 rounded-xl border text-xs transition cursor-pointer select-none ${
+                              isChecked
+                                ? 'bg-purple-50/50 border-purple-200 text-slate-900'
+                                : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-50'
+                            } ${isLocked ? 'opacity-80 cursor-not-allowed' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={isLocked}
+                              onChange={() => toggleTempColumn(col.key)}
+                              className="mt-0.5 rounded text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer disabled:cursor-not-allowed"
+                            />
+                            <div className="flex-1">
+                              <div className="font-semibold flex items-center gap-1.5">
+                                <span>{col.label}</span>
+                                {isLocked && (
+                                  <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-medium">Bắt buộc</span>
+                                )}
+                              </div>
+                              {col.desc && (
+                                <p className="text-[11px] text-slate-400 mt-0.5">{col.desc}</p>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-slate-600">
+                Đang chọn: <strong className="text-purple-700 font-bold">{tempColumns.length}</strong> / 15 cột
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowColumnModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveColumns(tempColumns)}
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Áp dụng cấu hình cột
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
