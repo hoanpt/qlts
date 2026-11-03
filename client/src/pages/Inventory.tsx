@@ -3,8 +3,9 @@ import {
   Building2, Printer, Download, Save, RefreshCw, 
   CheckCircle2, AlertTriangle, Users, Calendar, Filter, Search, Check,
   QrCode, UserPlus, Settings, Trash2, Edit2, Plus, ArrowRight, ShieldCheck,
-  Stethoscope, Monitor, Layers
+  Stethoscope, Monitor, Layers, FileText
 } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Department, Asset, CommitteeMember, STATUS_LABELS } from '../types';
@@ -33,6 +34,7 @@ export default function Inventory() {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [inventoryDate, setInventoryDate] = useState('15/01/2026');
   
@@ -48,11 +50,11 @@ export default function Inventory() {
     }
     return {
       membersTitle: 'Thành viên tổ kiểm kê',
-      membersList: 'Bà. Mai Thị Tính\nÔng. Phan Thanh Hoàn\nBà. Trần Thị Liên\nÔng. Phạm Phú Ân\nÔng. Huỳnh Bá Thành',
+      membersList: 'Trần Văn Vũ\nPhan Thanh Hoàn\nTrần Thị Liên\nHuỳnh Thị Thanh Tú',
       leaderTitle: 'Tổ trưởng Tổ chuyên trách / Đại diện Đơn vị',
-      leaderName: user?.role === 'MANAGER_CNTT' ? 'KTV. Phan Thanh Hoàn (Tổ CNTT)' :
+      leaderName: user?.role === 'MANAGER_CNTT' ? 'KTV. Phan Thanh Hoàn' :
                   user?.role === 'MANAGER_DUOC' ? 'Bà. Mai Thị Tính (Khoa Dược)' :
-                  user?.role === 'MANAGER_TCHC' ? 'Ông. Trần Liên (Phòng TCHC)' : 'KTV. Phan Thanh Hoàn / DS. Mai Thị Tính',
+                  user?.role === 'MANAGER_TCHC' ? 'Ông. Trần Liên (Phòng TCHC)' : 'KTV. Phan Thanh Hoàn',
       tcktTitle: 'Trưởng phòng TC - KT',
       tcktName: 'Ông. Hồ Phú Quảng',
       presidentTitle: 'Chủ tịch Hội đồng kiểm kê',
@@ -64,6 +66,48 @@ export default function Inventory() {
     setSignatures(newSigs);
     localStorage.setItem('inventory_signatures_c53', JSON.stringify(newSigs));
     setShowSignaturesModal(false);
+  };
+
+  const handleExportPdf = async () => {
+    const element = document.getElementById('inventory-c53-document');
+    if (!element) return;
+
+    setExportingPdf(true);
+    setTimeout(async () => {
+      try {
+        const deptPrefix = currentDept ? currentDept.code : (inventoryType === 'CNTT' ? 'CNTT' : 'CDC');
+        const filename = `BienBan_KiemKe_CNTT_${deptPrefix}_2026.pdf`;
+
+        const opt = {
+          margin: [6, 6, 6, 6],
+          filename: filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { 
+            scale: 2, 
+            useCORS: true, 
+            logging: false,
+            letterRendering: true
+          },
+          jsPDF: { 
+            unit: 'mm', 
+            format: 'a4', 
+            orientation: 'landscape',
+            compress: true
+          },
+          pagebreak: { 
+            mode: ['css', 'legacy'],
+            avoid: ['tr', '.signature-block']
+          }
+        };
+
+        await html2pdf().set(opt).from(element).save();
+      } catch (err) {
+        console.error('PDF export error:', err);
+        alert('Lỗi xuất PDF. Bạn có thể sử dụng nút "In / Lưu PDF qua Trình duyệt" để lưu file PDF chất lượng cao.');
+      } finally {
+        setExportingPdf(false);
+      }
+    }, 150);
   };
 
   // Load departments & committee members from API
@@ -264,6 +308,7 @@ export default function Inventory() {
   const filteredAssets = assets.filter(a => 
     (a.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (a.assetCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (a.oldAssetCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (a.locationDetail || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (a.floor || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -277,7 +322,7 @@ export default function Inventory() {
   // Form title
   const formTitle = 
     inventoryType === 'DUOC' ? 'TRANG THIẾT BỊ Y TẾ (KHOA DƯỢC QUẢN LÝ)' :
-    inventoryType === 'CNTT' ? 'THIẾT BỊ CÔNG NGHỆ THÔNG TIN (TỔ CNTT QUẢN LÝ)' :
+    inventoryType === 'CNTT' ? (currentDept ? `THIẾT BỊ CNTT ${currentDept.name.toUpperCase()}` : 'THIẾT BỊ CÔNG NGHỆ THÔNG TIN (TỔ CNTT QUẢN LÝ)') :
     inventoryType === 'TCHC_HC' ? 'THIẾT BỊ HÀNH CHÍNH & CÔNG CỤ DỤNG CỤ (PHÒNG TCHC QUẢN LÝ)' :
     inventoryType === 'TCHC_TOANHA' ? `CƠ SỞ VẬT CHẤT & HẠ TẦNG TÒA NHÀ (${selectedFloor.toUpperCase()})` :
     `KHOA / PHÒNG: ${currentDept ? currentDept.name.toUpperCase() : 'TOÀN ĐƠN VỊ'}`;
@@ -341,16 +386,26 @@ export default function Inventory() {
                 window.open(`/api/export/c53-hd?${params.toString()}`, '_blank');
               }}
               className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow transition cursor-pointer"
+              title="Xuất file Excel (.xlsx) chuẩn khổ ngang A4 theo biểu mẫu"
             >
-              <Download className="w-4 h-4" /> Xuất Excel C53-HD
+              <Download className="w-4 h-4" /> Xuất Excel (.xlsx)
+            </button>
+
+            <button
+              onClick={handleExportPdf}
+              disabled={exportingPdf || loading}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-semibold shadow transition cursor-pointer"
+              title="Tải trực tiếp file PDF (.pdf) chuẩn khổ ngang A4"
+            >
+              <FileText className="w-4 h-4" /> {exportingPdf ? 'Đang tạo PDF...' : 'Xuất file PDF'}
             </button>
 
             <button
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow transition cursor-pointer"
-              title="Xuất trực tiếp sang file PDF hoặc in ấn chuẩn văn bản C53-HD"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-semibold shadow transition cursor-pointer"
+              title="In trực tiếp hoặc Lưu PDF qua Trình duyệt (khổ ngang A4)"
             >
-              <Printer className="w-4 h-4" /> Xuất PDF / In C53-HD
+              <Printer className="w-4 h-4" /> In / Xem trước
             </button>
           </div>
         </div>
@@ -506,8 +561,10 @@ export default function Inventory() {
       {/* ========================================================================= */}
       {/* 2. BIỂU MẪU CHUẨN C53-HD (Hiển thị trực quan & In ấn chuẩn văn bản nhà nước) */}
       {/* ========================================================================= */}
-      <div className="bg-white p-6 sm:p-10 rounded-2xl shadow-md border border-slate-200 print:shadow-none print:border-none print:p-0 font-serif text-slate-900 leading-normal">
-        
+      <div 
+        id="inventory-c53-document" 
+        className="bg-white p-6 sm:p-10 rounded-2xl shadow-md border border-slate-200 print:shadow-none print:border-none print:p-0 font-serif text-slate-900 leading-normal"
+      >
         {/* Header: Đơn vị & Mẫu số C53-HD */}
         <div className="flex justify-between items-start text-xs sm:text-sm font-sans mb-4">
           <div>
@@ -523,7 +580,7 @@ export default function Inventory() {
         {/* Tiêu đề Biên Bản */}
         <div className="text-center my-6">
           <h2 className="text-lg sm:text-2xl font-bold uppercase tracking-wide">
-            BIÊN BẢN KIỂM KÊ TÀI SẢN CỐ ĐỊNH, CÔNG CỤ DỤNG CỤ NĂM 2026
+            BIÊN BẢN KIỂM KÊ TÀI SẢN CỐ ĐỊNH NĂM 2026
           </h2>
           <div className="text-base sm:text-lg font-bold text-blue-900 uppercase mt-1">
             {formTitle}
@@ -550,11 +607,11 @@ export default function Inventory() {
             </div>
             <div className="flex justify-between border-b border-slate-200 pb-1">
               <span>2. <strong>{memberTCKT.fullName}</strong> - {memberTCKT.position}</span>
-              <span className="font-bold text-slate-700">Thành viên</span>
+              <span className="font-bold text-slate-700">Ủy viên</span>
             </div>
             <div className="flex justify-between border-b border-slate-200 pb-1">
-              <span>3. <strong>{teamLeader.fullName}</strong> - {teamLeader.position}</span>
-              <span className="font-bold text-emerald-700">{teamLeader.titleRole}</span>
+              <span>3. <strong>{inventoryType === 'CNTT' ? 'Ông. Trần Văn Vũ' : teamLeader.fullName}</strong> - {inventoryType === 'CNTT' ? 'Trưởng phòng KHNV' : teamLeader.position}</span>
+              <span className="font-bold text-emerald-700">{inventoryType === 'CNTT' ? 'Tổ trưởng' : teamLeader.titleRole}</span>
             </div>
             <div className="flex justify-between border-b border-slate-200 pb-1">
               <span>4. <strong>{deptRep.fullName}</strong> - {deptRep.position}</span>
@@ -564,7 +621,7 @@ export default function Inventory() {
               <span>5. <strong>Thành viên tổ kiểm kê:</strong> {
                 teamMembers.length > 0
                   ? teamMembers.map(m => `${m.fullName} (${m.position})`).join(', ')
-                  : 'Bà. Mai Thị Tính, Ông. Phạm Phú Ân, Ông. Lê Xuân Lộc, Ông. Huỳnh Bá Thành, Bà. Lê Thị Thanh Thủy'
+                  : 'Ông. Trần Văn Vũ, Ông. Phan Thanh Hoàn, Bà. Trần Thị Liên, Bà. Huỳnh Thị Thanh Tú'
               }</span>
             </div>
           </div>
@@ -573,58 +630,56 @@ export default function Inventory() {
           </div>
         </div>
 
-        {/* Bảng Dữ Liệu Kiểm Kê 14 Cột & Đánh Số A, B, C, D, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 */}
+        {/* Bảng Dữ Liệu Kiểm Kê 13 Cột Chuẩn Mẫu Excel CDC Đà Nẵng */}
         <div className="overflow-x-auto border border-slate-400 rounded-lg">
           <table className="w-full text-xs font-sans border-collapse text-left">
             <thead>
               <tr className="bg-slate-100 text-center font-bold border-b border-slate-400 divide-x divide-slate-300">
                 <th rowSpan={2} className="p-2 w-10">STT</th>
-                <th rowSpan={2} className="p-2 min-w-[200px]">Tài sản</th>
-                <th rowSpan={2} className="p-2 min-w-[90px]">Mã số</th>
-                <th rowSpan={2} className="p-2 min-w-[60px]">Năm đưa vào SD</th>
-                <th colSpan={3} className="p-1 border-b border-slate-300">Số lượng</th>
+                <th rowSpan={2} className="p-2 min-w-[200px]">TÀI SẢN</th>
+                <th rowSpan={2} className="p-2 min-w-[105px]">Mã số cũ</th>
+                <th rowSpan={2} className="p-2 min-w-[110px]">Mã số mới</th>
+                <th rowSpan={2} className="p-2 min-w-[65px]">Năm đưa vào SD</th>
+                <th colSpan={1} className="p-1 border-b border-slate-300">Thực tế KK</th>
                 <th rowSpan={2} className="p-2 min-w-[90px]">Đơn giá (đ)</th>
-                <th rowSpan={2} className="p-2 min-w-[100px]">Thành tiền (đ)</th>
-                <th rowSpan={2} className="p-2 min-w-[110px]">Bộ phận quản lý</th>
+                <th rowSpan={2} className="p-2 min-w-[105px]">Thành tiền (đ)</th>
+                <th rowSpan={2} className="p-2 min-w-[100px]">Bộ phận quản lý</th>
                 <th rowSpan={2} className="p-2 min-w-[130px]">Nơi sử dụng hoặc người SD</th>
-                <th rowSpan={2} className="p-2 min-w-[120px]">Tình trạng sử dụng</th>
-                <th rowSpan={2} className="p-2 min-w-[110px]">Nơi TS mới chuyển đến</th>
+                <th rowSpan={2} className="p-2 min-w-[110px]">Tình trạng sử dụng</th>
+                <th rowSpan={2} className="p-2 min-w-[100px]">Nơi TS mới chuyển đến</th>
                 <th rowSpan={2} className="p-2 min-w-[120px]">Ghi chú</th>
               </tr>
               <tr className="bg-slate-100 text-center font-bold border-b border-slate-400 divide-x divide-slate-300">
-                <th className="p-1.5 min-w-[65px]">Theo sổ sách</th>
-                <th className="p-1.5 min-w-[65px] bg-blue-50/70 text-blue-900">Thực tế KK</th>
-                <th className="p-1.5 min-w-[65px]">Chênh lệch</th>
+                <th className="p-1 min-w-[65px] bg-blue-50/70 text-blue-900">Số lượng</th>
               </tr>
-              {/* Reference Row: A, B, C, D, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 */}
+              {/* Reference Row: A, B, C, D, E, 1, 2, 3, 4, 5, 6, 7, 8 */}
               <tr className="bg-slate-200 text-center text-[10px] font-bold border-b border-slate-400 divide-x divide-slate-300 text-slate-700">
                 <td className="p-1">A</td>
                 <td className="p-1">B</td>
                 <td className="p-1">C</td>
                 <td className="p-1">D</td>
-                <td className="p-1">1</td>
-                <td className="p-1 bg-blue-100/60">2</td>
+                <td className="p-1">E</td>
+                <td className="p-1 bg-blue-100/60">1</td>
+                <td className="p-1">2</td>
                 <td className="p-1">3</td>
                 <td className="p-1">4</td>
                 <td className="p-1">5</td>
                 <td className="p-1">6</td>
                 <td className="p-1">7</td>
                 <td className="p-1">8</td>
-                <td className="p-1">9</td>
-                <td className="p-1">10</td>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-300">
               {loading ? (
                 <tr>
-                  <td colSpan={14} className="text-center py-16 text-slate-400">
+                  <td colSpan={13} className="text-center py-16 text-slate-400">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
                     Đang tải danh mục kiểm kê...
                   </td>
                 </tr>
               ) : filteredAssets.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="text-center py-16 text-slate-400 font-medium">
+                  <td colSpan={13} className="text-center py-16 text-slate-400 font-medium">
                     Không có tài sản nào trong phân loại hoặc khoa phòng được chọn.
                   </td>
                 </tr>
@@ -638,85 +693,109 @@ export default function Inventory() {
                         <div className="text-[10px] text-slate-500 font-normal">{asset.specifications}</div>
                       )}
                     </td>
-                    <td className="p-2 font-mono font-bold text-blue-700 text-center">{asset.assetCode}</td>
-                    <td className="p-2 text-center text-slate-700">{asset.yearInUse || '-'}</td>
-                    
-                    {/* Cột 1: Sổ sách */}
-                    <td className="p-2 text-center font-semibold text-slate-800">{asset.bookQuantity || 1}</td>
-                    
-                    {/* Cột 2: Thực tế (Editable Input) */}
-                    <td className="p-1 text-center bg-blue-50/40">
-                      <input
-                        type="number"
-                        min="0"
-                        value={asset.actualQuantity}
-                        onChange={e => handleQuantityChange(asset.id, e.target.value)}
-                        className="w-14 text-center font-bold text-blue-900 bg-white border border-blue-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none"
-                      />
+                    <td className="p-2 font-mono text-center text-amber-800 text-[11px] font-medium">
+                      {asset.oldAssetCode || '—'}
                     </td>
-
-                    {/* Cột 3: Chênh lệch */}
-                    <td className="p-2 text-center font-bold">
-                      {asset.quantityDifference === 0 ? (
-                        <span className="text-slate-400">0</span>
-                      ) : asset.quantityDifference > 0 ? (
-                        <span className="text-emerald-600">+{asset.quantityDifference} (Thừa)</span>
+                    <td className="p-2 font-mono font-bold text-blue-700 text-center">
+                      {asset.assetCode}
+                    </td>
+                    <td className="p-2 text-center text-slate-700">{asset.yearInUse || '—'}</td>
+                    
+                    {/* Cột 1: Thực tế KK (Số lượng) */}
+                    <td className="p-1 text-center bg-blue-50/20">
+                      {exportingPdf ? (
+                        <span className="font-bold text-slate-900">{asset.actualQuantity}</span>
                       ) : (
-                        <span className="text-red-600">{asset.quantityDifference} (Thiếu)</span>
+                        <>
+                          <span className="hidden print:inline font-bold text-slate-900">{asset.actualQuantity}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={asset.actualQuantity}
+                            onChange={e => handleQuantityChange(asset.id, e.target.value)}
+                            className="print:hidden w-14 text-center font-bold text-blue-900 bg-white border border-blue-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none"
+                          />
+                        </>
                       )}
                     </td>
 
-                    {/* Cột 4: Đơn giá */}
+                    {/* Cột 2: Đơn giá */}
                     <td className="p-2 text-right text-slate-700 font-mono">
-                      {asset.originalPrice ? Number(asset.originalPrice).toLocaleString('vi-VN') : '-'}
+                      {asset.originalPrice ? Number(asset.originalPrice).toLocaleString('vi-VN') : '—'}
                     </td>
 
-                    {/* Cột 5: Thành tiền */}
+                    {/* Cột 3: Thành tiền */}
                     <td className="p-2 text-right font-bold text-slate-900 font-mono">
                       {asset.originalPrice 
                         ? (Number(asset.originalPrice) * (asset.actualQuantity || 1)).toLocaleString('vi-VN')
-                        : '-'}
+                        : '—'}
                     </td>
 
-                    {/* Cột 6: Bộ phận quản lý */}
-                    <td className="p-2 text-slate-700">
-                      {asset.managingUnit === 'DUOC' ? 'Khoa Dược (TBYT)' :
+                    {/* Cột 4: Bộ phận quản lý */}
+                    <td className="p-2 text-slate-700 text-center">
+                      {asset.managingUnit === 'DUOC' ? 'Khoa Dược' :
                        asset.managingUnit === 'CNTT' ? 'Tổ CNTT' :
                        asset.source || asset.department?.name || 'Phòng TCHC'}
                     </td>
 
-                    {/* Cột 7: Nơi sử dụng */}
+                    {/* Cột 5: Nơi sử dụng */}
                     <td className="p-2 text-slate-700">
-                      <div>{asset.floor ? `${asset.floor} - ` : ''}{asset.locationDetail || asset.assignedTo || asset.department?.name || 'Tại đơn vị'}</div>
+                      <div>{asset.locationDetail || asset.assignedTo || asset.department?.name || 'Tại đơn vị'}</div>
                     </td>
 
-                    {/* Cột 8: Tình trạng sử dụng */}
-                    <td className="p-1">
-                      <select
-                        value={asset.currentStatus}
-                        onChange={e => handleStatusChange(asset.id, e.target.value)}
-                        className="w-full text-xs border border-slate-200 rounded px-1.5 py-1 bg-white font-medium focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="DANG_SU_DUNG">Đang sử dụng</option>
-                        <option value="HONG">Hỏng / ĐN sửa</option>
-                        <option value="CHO_THANH_LY">ĐN thanh lý</option>
-                        <option value="KHONG_SU_DUNG">Không sử dụng</option>
-                        <option value="BAO_TRI">Đang bảo trì</option>
-                      </select>
+                    {/* Cột 6: Tình trạng sử dụng */}
+                    <td className="p-1 text-center">
+                      {exportingPdf ? (
+                        <span className="font-medium text-slate-900">
+                          {asset.currentStatus === 'DANG_SU_DUNG' ? 'Đang sử dụng' :
+                           asset.currentStatus === 'HONG' ? 'Hỏng' :
+                           asset.currentStatus === 'CHO_THANH_LY' ? 'ĐN thanh lý' :
+                           asset.currentStatus === 'BAO_TRI' ? 'Bảo trì' :
+                           asset.currentStatus === 'KHONG_SU_DUNG' ? 'Không sử dụng' : (asset.currentStatus || 'Đang sử dụng')}
+                        </span>
+                      ) : (
+                        <>
+                          <span className="hidden print:inline font-medium text-slate-900">
+                            {asset.currentStatus === 'DANG_SU_DUNG' ? 'Đang sử dụng' :
+                             asset.currentStatus === 'HONG' ? 'Hỏng' :
+                             asset.currentStatus === 'CHO_THANH_LY' ? 'ĐN thanh lý' :
+                             asset.currentStatus === 'BAO_TRI' ? 'Bảo trì' :
+                             asset.currentStatus === 'KHONG_SU_DUNG' ? 'Không sử dụng' : (asset.currentStatus || 'Đang sử dụng')}
+                          </span>
+                          <select
+                            value={asset.currentStatus}
+                            onChange={e => handleStatusChange(asset.id, e.target.value)}
+                            className="print:hidden w-full text-xs border border-slate-200 rounded px-1.5 py-1 bg-white font-medium focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value="DANG_SU_DUNG">Đang sử dụng</option>
+                            <option value="HONG">Hỏng</option>
+                            <option value="BAO_TRI">Bảo trì</option>
+                            <option value="CHO_THANH_LY">ĐN thanh lý</option>
+                            <option value="KHONG_SU_DUNG">Không sử dụng</option>
+                          </select>
+                        </>
+                      )}
                     </td>
 
-                    {/* Cột 9: Nơi chuyển đến */}
-                    <td className="p-2 text-slate-600">{asset.location || 'Cơ sở 1'}</td>
+                    {/* Cột 7: Nơi chuyển đến */}
+                    <td className="p-2 text-center text-slate-600">{asset.location || 'Cơ sở 1'}</td>
 
-                    {/* Cột 10: Ghi chú */}
+                    {/* Cột 8: Ghi chú */}
                     <td className="p-1">
-                      <input
-                        type="text"
-                        value={asset.customNote}
-                        onChange={e => handleNoteChange(asset.id, e.target.value)}
-                        placeholder="Ghi chú..."
-                        className="w-full text-xs border border-slate-200 rounded px-1.5 py-1 bg-white focus:ring-1 focus:ring-blue-500"
-                      />
+                      {exportingPdf ? (
+                        <span className="text-[11px] text-slate-800">{asset.customNote || ''}</span>
+                      ) : (
+                        <>
+                          <span className="hidden print:inline text-[11px] text-slate-800">{asset.customNote || ''}</span>
+                          <input
+                            type="text"
+                            value={asset.customNote || ''}
+                            onChange={e => handleNoteChange(asset.id, e.target.value)}
+                            placeholder="Ghi chú..."
+                            className="print:hidden w-full text-xs border border-slate-200 rounded px-1.5 py-1 bg-white focus:ring-1 focus:ring-blue-500"
+                          />
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -726,14 +805,10 @@ export default function Inventory() {
             {/* Tổng cộng footer */}
             <tfoot>
               <tr className="bg-slate-100 font-bold border-t-2 border-slate-400 divide-x divide-slate-300">
-                <td colSpan={4} className="p-2 text-center uppercase tracking-wider">TỔNG CỘNG ({filteredAssets.length} thiết bị)</td>
-                <td className="p-2 text-center text-slate-900">{totalBookQty}</td>
+                <td colSpan={5} className="p-2 text-center uppercase tracking-wider">TỔNG CỘNG ({filteredAssets.length} thiết bị)</td>
                 <td className="p-2 text-center text-blue-900 bg-blue-100/50">{totalActualQty}</td>
-                <td className="p-2 text-center">
-                  {totalDiffQty === 0 ? '0' : totalDiffQty > 0 ? `+${totalDiffQty}` : totalDiffQty}
-                </td>
                 <td className="p-2"></td>
-                <td className="p-2 text-right font-mono text-blue-900">{totalValue.toLocaleString('vi-VN')} đ</td>
+                <td className="p-2 text-right font-mono text-blue-900">{totalValue > 0 ? totalValue.toLocaleString('vi-VN') + ' đ' : '—'}</td>
                 <td colSpan={5} className="p-2"></td>
               </tr>
             </tfoot>
@@ -741,40 +816,49 @@ export default function Inventory() {
         </div>
 
         {/* 3. CHỮ KÝ PHÊ DUYỆT BIÊN BẢN (Khớp chuẩn 4 khối chức danh CDC) */}
-        <div className="mt-10 pt-4 font-sans text-xs sm:text-sm">
-          <div className="text-right italic mb-4">
+        <div className="mt-8 pt-4 font-sans text-xs sm:text-sm">
+          <div className="text-right italic mb-4 pr-6">
             Đà Nẵng, ngày {inventoryDate.split('/')[0]} tháng {inventoryDate.split('/')[1] || '01'} năm {inventoryDate.split('/')[2] || '2026'}
           </div>
 
           <div className="grid grid-cols-4 gap-4 text-center font-sans">
             {/* Cột 1: Tổ kiểm kê */}
             <div>
-              <div className="font-bold uppercase text-slate-900">{signatures.membersTitle}</div>
-              <div className="text-[11px] italic text-slate-500 mb-14">(Ký, ghi rõ họ tên)</div>
-              <div className="text-left text-xs text-slate-700 space-y-1 font-sans pl-2 whitespace-pre-line">
-                {signatures.membersList}
+              <div className="font-bold uppercase text-slate-900">{signatures.membersTitle || 'THÀNH VIÊN TỔ KIỂM KÊ'}</div>
+              <div className="text-[11px] italic text-slate-500 mb-6">(Ký, ghi rõ họ tên)</div>
+              <div className="text-left text-xs text-slate-700 space-y-1.5 font-sans pl-2 whitespace-pre-line">
+                {(signatures.membersList || 'Trần Văn Vũ\nPhan Thanh Hoàn\nTrần Thị Liên\nHuỳnh Thị Thanh Tú')
+                  .split('\n')
+                  .map((mem: string, i: number) => (
+                    <div key={i} className="flex justify-between items-center text-xs">
+                      <span>- {mem.replace(/^-\s*/, '')}</span>
+                      <span className="text-slate-400 tracking-wider">........................</span>
+                    </div>
+                  ))}
               </div>
             </div>
 
-            {/* Cột 2: Đại diện Khoa/Phòng / Tổ trưởng chuyên trách */}
+            {/* Cột 2: Đại diện Khoa/Phòng */}
             <div>
-              <div className="font-bold uppercase text-slate-900">{signatures.leaderTitle}</div>
+              <div className="font-bold uppercase text-slate-900">
+                {currentDept ? `ĐẠI DIỆN ${currentDept.name.toUpperCase()}` : signatures.leaderTitle}
+              </div>
               <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
-              <div className="font-bold text-slate-800">{signatures.leaderName}</div>
+              <div className="font-bold text-slate-900">{signatures.leaderName}</div>
             </div>
 
             {/* Cột 3: Trưởng phòng TCKT */}
             <div>
-              <div className="font-bold uppercase text-slate-900">{signatures.tcktTitle}</div>
+              <div className="font-bold uppercase text-slate-900">{signatures.tcktTitle || 'TRƯỞNG PHÒNG TC - KT'}</div>
               <div className="text-[11px] italic text-slate-500 mb-20">(Ký, ghi rõ họ tên)</div>
-              <div className="font-bold text-slate-800">{signatures.tcktName}</div>
+              <div className="font-bold text-slate-900">{signatures.tcktName || 'Hồ Phú Quảng'}</div>
             </div>
 
             {/* Cột 4: Giám đốc / Chủ tịch Hội đồng */}
             <div>
-              <div className="font-bold uppercase text-slate-900">{signatures.presidentTitle}</div>
+              <div className="font-bold uppercase text-slate-900">{signatures.presidentTitle || 'CHỦ TỊCH HỘI ĐỒNG'}</div>
               <div className="text-[11px] italic text-slate-500 mb-20">(Ký, đóng dấu)</div>
-              <div className="font-bold text-slate-800">{signatures.presidentName}</div>
+              <div className="font-bold text-slate-900">{signatures.presidentName || 'Nguyễn Đại Vĩnh'}</div>
             </div>
           </div>
         </div>

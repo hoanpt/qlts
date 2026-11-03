@@ -237,19 +237,26 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
       try { sigs = JSON.parse(signaturesJson as string); } catch {}
     }
 
-    const reporterNames = sigs.membersText || '- Mai Thị Tính\n- Phạm Phú Ân\n- Lê Xuân Lộc\n- Huỳnh Bá Thành\n- Lê Thị Thanh Thủy';
-    const leaderTitle = sigs.leaderTitle || (managingUnit === 'CNTT' ? 'TỔ TRƯỞNG TỔ CNTT' : managingUnit === 'TCHC' ? 'TRƯỞNG PHÒNG TCHC' : 'PHỤ TRÁCH KHOA DƯỢC - VTYT');
-    const leaderName = sigs.leaderName || (managingUnit === 'CNTT' ? 'KTV. Phan Thanh Hoàn' : managingUnit === 'TCHC' ? 'Ông. Trần Liên' : 'DS. Mai Thị Tính');
+    const reporterNames = sigs.membersText || '- Trần Văn Vũ\n- Phan Thanh Hoàn\n- Trần Thị Liên\n- Huỳnh Thị Thanh Tú';
+    const isCntt = managingUnit === 'CNTT' || (req.user && req.user.role === 'MANAGER_CNTT');
+    const leaderTitle = sigs.leaderTitle || (isCntt ? (dept ? `Trưởng ${dept.name}` : 'TỔ TRƯỞNG TỔ CNTT') : managingUnit === 'TCHC' ? 'TRƯỞNG PHÒNG TCHC' : 'PHỤ TRÁCH KHOA DƯỢC - VTYT');
+    const leaderName = sigs.leaderName || (isCntt ? 'KTV. Phan Thanh Hoàn' : managingUnit === 'TCHC' ? 'Ông. Trần Liên' : 'DS. Mai Thị Tính');
     const tcktName = sigs.financeName || 'Ông. Hồ Phú Quảng';
     const directorName = sigs.presidentName || 'Ông. Nguyễn Đại Vĩnh';
     const reportDateStr = inventoryDate || '15 tháng 01 năm 2026';
 
     let unitTitle = 'TOÀN TRUNG TÂM';
-    if (dept) unitTitle = `KHOA / PHÒNG: ${dept.name.toUpperCase()}`;
-    else if (managingUnit === 'DUOC') unitTitle = 'KHỐI TRANG THIẾT BỊ Y TẾ (KHOA DƯỢC QUẢN LÝ)';
-    else if (managingUnit === 'CNTT') unitTitle = 'KHỐI THIẾT BỊ CÔNG NGHỆ THÔNG TIN (TỔ CNTT QUẢN LÝ)';
-    else if (managingUnit === 'TCHC' && buildingAsset === '1') unitTitle = `HẠ TẦNG CƠ SỞ VẬT CHẤT TÒA NHÀ (${floor || 'CÁC TẦNG'})`;
-    else if (managingUnit === 'TCHC') unitTitle = 'THIẾT BỊ HÀNH CHÍNH & CÔNG CỤ DỤNG CỤ (PHÒNG TCHC QUẢN LÝ)';
+    if (isCntt) {
+      unitTitle = dept ? `THIẾT BỊ CNTT ${dept.name.toUpperCase()}` : 'THIẾT BỊ CÔNG NGHỆ THÔNG TIN (TỔ CNTT QUẢN LÝ)';
+    } else if (dept) {
+      unitTitle = `KHOA / PHÒNG: ${dept.name.toUpperCase()}`;
+    } else if (managingUnit === 'DUOC') {
+      unitTitle = 'KHỐI TRANG THIẾT BỊ Y TẾ (KHOA DƯỢC QUẢN LÝ)';
+    } else if (managingUnit === 'TCHC' && buildingAsset === '1') {
+      unitTitle = `HẠ TẦNG CƠ SỞ VẬT CHẤT TÒA NHÀ (${floor || 'CÁC TẦNG'})`;
+    } else if (managingUnit === 'TCHC') {
+      unitTitle = 'THIẾT BỊ HÀNH CHÍNH & CÔNG CỤ DỤNG CỤ (PHÒNG TCHC QUẢN LÝ)';
+    }
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('BienBan_C53_HD', {
@@ -287,7 +294,7 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
 
     // Row 4-5: Title
     const titleRow = sheet.addRow([
-      'BIÊN BẢN KIỂM KÊ TÀI SẢN CỐ ĐỊNH, CÔNG CỤ DỤNG CỤ NĂM 2026', '', '', '', '', '', '', '', '', '', '', '', ''
+      'BIÊN BẢN KIỂM KÊ TÀI SẢN CỐ ĐỊNH NĂM 2026', '', '', '', '', '', '', '', '', '', '', '', ''
     ]);
     titleRow.font = { name: 'Times New Roman', size: 14, bold: true };
     titleRow.alignment = { horizontal: 'center' };
@@ -321,19 +328,19 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
     sheet.mergeCells(`D${m1.number}:H${m1.number}`);
     sheet.mergeCells(`I${m1.number}:M${m1.number}`);
 
-    const m2 = sheet.addRow(['2. ' + tcktName, '', '', 'Trưởng phòng TC - KT', '', '', '', '', '', '', '', 'Ủy viên Tài chính', '']);
+    const m2 = sheet.addRow(['2. ' + tcktName, '', '', 'Trưởng phòng TC - KT', '', '', '', '', '', '', '', 'Ủy viên', '']);
     m2.font = { name: 'Times New Roman', size: 10 };
     sheet.mergeCells(`A${m2.number}:C${m2.number}`);
     sheet.mergeCells(`D${m2.number}:H${m2.number}`);
     sheet.mergeCells(`I${m2.number}:M${m2.number}`);
 
-    const m3 = sheet.addRow(['3. ' + leaderName, '', '', leaderTitle, '', '', '', '', '', '', '', 'Tổ trưởng Chuyên trách', '']);
+    const m3 = sheet.addRow(['3. ' + (isCntt ? 'Ông. Trần Văn Vũ' : leaderName), '', '', (isCntt ? 'Trưởng phòng KHNV' : leaderTitle), '', '', '', '', '', '', '', (isCntt ? 'Tổ trưởng' : 'Tổ trưởng Chuyên trách'), '']);
     m3.font = { name: 'Times New Roman', size: 10 };
     sheet.mergeCells(`A${m3.number}:C${m3.number}`);
     sheet.mergeCells(`D${m3.number}:H${m3.number}`);
     sheet.mergeCells(`I${m3.number}:M${m3.number}`);
 
-    const m4 = sheet.addRow([`4. Đại diện: ${dept ? dept.name : 'Các Khoa / Phòng'}`, '', '', 'Trưởng / Phó Đơn vị', '', '', '', '', '', '', '', 'Đại diện Khoa', '']);
+    const m4 = sheet.addRow([`4. Đại diện: ${dept ? dept.name : 'Các Khoa / Phòng'}`, '', '', (dept ? (leaderName || 'Trưởng / Phó Đơn vị') : 'Trưởng / Phó Đơn vị'), '', '', '', '', '', '', '', 'Đại diện Khoa', '']);
     m4.font = { name: 'Times New Roman', size: 10 };
     sheet.mergeCells(`A${m4.number}:C${m4.number}`);
     sheet.mergeCells(`D${m4.number}:H${m4.number}`);
@@ -352,18 +359,18 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
     // Table Header 1 (Rows 16-17)
     const headerRow1 = sheet.addRow([
       'STT',
-      'TÀI SẢN / TÊN THIẾT BỊ',
-      'Mã số',
+      'TÀI SẢN',
+      'Mã số cũ',
+      'Mã số mới',
       'Năm đưa vào SD',
-      'Theo sổ sách (SL)',
       'Thực tế KK (SL)',
-      'Chênh lệch',
       'Đơn giá (đ)',
       'Thành tiền (đ)',
       'Bộ phận quản lý',
       'Nơi sử dụng / Người SD',
       'Tình trạng sử dụng',
-      'Ghi chú / Vị trí'
+      'Nơi TS mới chuyển đến',
+      'Ghi chú'
     ]);
 
     headerRow1.height = 28;
@@ -375,7 +382,7 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
     });
 
     const headerRow2 = sheet.addRow([
-      'A', 'B', 'C', 'D', '1', '2', '3', '4', '5', '6', '7', '8', '9'
+      'A', 'B', 'C', 'D', 'E', '1', '2', '3', '4', '5', '6', '7', '8'
     ]);
     headerRow2.height = 18;
     headerRow2.eachCell(cell => {
@@ -387,17 +394,17 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
 
     sheet.columns = [
       { key: 'stt', width: 5.5 },
-      { key: 'name', width: 34 },
-      { key: 'assetCode', width: 15 },
+      { key: 'name', width: 36 },
+      { key: 'oldAssetCode', width: 16 },
+      { key: 'assetCode', width: 17 },
       { key: 'yearInUse', width: 9 },
-      { key: 'bookQty', width: 10 },
       { key: 'actualQty', width: 10 },
-      { key: 'diff', width: 9 },
       { key: 'price', width: 14 },
       { key: 'total', width: 15 },
-      { key: 'unit', width: 15 },
+      { key: 'unit', width: 14 },
       { key: 'user', width: 22 },
       { key: 'status', width: 14 },
+      { key: 'location', width: 15 },
       { key: 'note', width: 18 }
     ];
 
@@ -408,7 +415,6 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
     assets.forEach((a, idx) => {
       const bQty = a.bookQuantity || 1;
       const aQty = a.actualQuantity !== undefined && a.actualQuantity !== null ? a.actualQuantity : bQty;
-      const diff = a.quantityDifference || (aQty - bQty);
       const price = a.originalPrice || 0;
       const itemTotal = price > 0 ? price * aQty : 0;
 
@@ -422,39 +428,42 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
       const statusText = a.status === 'DANG_SU_DUNG' ? 'Đang sử dụng' :
                          a.status === 'HONG' ? 'Hỏng' :
                          a.status === 'CHO_THANH_LY' ? 'ĐN thanh lý' :
-                         a.status === 'BAO_TRI' ? 'Bảo trì' : a.status;
+                         a.status === 'BAO_TRI' ? 'Bảo trì' : 
+                         a.status === 'KHONG_SU_DUNG' ? 'Không sử dụng' : (a.status || 'Đang sử dụng');
 
       const row = sheet.addRow([
         idx + 1,
         a.name + (a.specifications ? `\n- ${a.specifications}` : ''),
+        a.oldAssetCode || '',
         a.assetCode,
         a.yearInUse || '',
-        bQty,
         aQty,
-        diff !== 0 ? diff : '-',
         price > 0 ? price : '',
         itemTotal > 0 ? itemTotal : '',
         unitText,
-        a.department?.name || a.assignedTo || '',
+        a.locationDetail || a.assignedTo || a.department?.name || '',
         statusText,
-        a.locationDetail || a.floor || a.note || ''
+        a.location || 'Cơ sở 1',
+        a.note || ''
       ]);
 
       row.height = a.specifications ? 32 : 20;
       row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
       row.getCell(2).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
       row.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
-      row.getCell(3).font = { name: 'Times New Roman', size: 9.5, bold: true };
       row.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+      row.getCell(4).font = { name: 'Times New Roman', size: 9.5, bold: true };
       row.getCell(5).alignment = { horizontal: 'center', vertical: 'middle' };
       row.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
-      row.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+      row.getCell(6).font = { name: 'Times New Roman', size: 9.5, bold: true };
+      row.getCell(7).alignment = { horizontal: 'right', vertical: 'middle' };
+      row.getCell(7).numFmt = '#,##0';
       row.getCell(8).alignment = { horizontal: 'right', vertical: 'middle' };
       row.getCell(8).numFmt = '#,##0';
-      row.getCell(9).alignment = { horizontal: 'right', vertical: 'middle' };
-      row.getCell(9).numFmt = '#,##0';
-      row.getCell(10).alignment = { horizontal: 'center', vertical: 'middle' };
-      row.getCell(11).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+      row.getCell(8).font = { name: 'Times New Roman', size: 9.5, bold: true };
+      row.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
+      row.getCell(10).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+      row.getCell(11).alignment = { horizontal: 'center', vertical: 'middle' };
       row.getCell(12).alignment = { horizontal: 'center', vertical: 'middle' };
       row.getCell(13).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
 
@@ -466,28 +475,22 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
 
     // Summary Row
     const sumRow = sheet.addRow([
-      'TỔNG CỘNG', '', '', '',
-      totalBookQty,
+      'TỔNG CỘNG', '', '', '', '',
       totalActualQty,
-      totalActualQty - totalBookQty !== 0 ? (totalActualQty - totalBookQty) : '-',
       '',
       totalValue > 0 ? totalValue : '',
-      '', '', '', ''
+      '', '', '', '', ''
     ]);
 
     sumRow.height = 24;
-    sheet.mergeCells(`A${sumRow.number}:D${sumRow.number}`);
+    sheet.mergeCells(`A${sumRow.number}:E${sumRow.number}`);
     sumRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     sumRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: true };
-    sumRow.getCell(5).font = { name: 'Times New Roman', size: 10, bold: true };
-    sumRow.getCell(5).alignment = { horizontal: 'center', vertical: 'middle' };
     sumRow.getCell(6).font = { name: 'Times New Roman', size: 10, bold: true };
     sumRow.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
-    sumRow.getCell(7).font = { name: 'Times New Roman', size: 10, bold: true };
-    sumRow.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
-    sumRow.getCell(9).font = { name: 'Times New Roman', size: 10, bold: true };
-    sumRow.getCell(9).alignment = { horizontal: 'right', vertical: 'middle' };
-    sumRow.getCell(9).numFmt = '#,##0';
+    sumRow.getCell(8).font = { name: 'Times New Roman', size: 10, bold: true };
+    sumRow.getCell(8).alignment = { horizontal: 'right', vertical: 'middle' };
+    sumRow.getCell(8).numFmt = '#,##0';
 
     sumRow.eachCell({ includeEmpty: true }, cell => {
       cell.border = DOUBLE_BOTTOM_BORDER;
@@ -504,9 +507,9 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
 
     const sigTitleRow = sheet.addRow([
       'THÀNH VIÊN TỔ KIỂM KÊ', '', '',
-      leaderTitle.toUpperCase(), '', '',
+      (dept ? `ĐẠI DIỆN ${dept.name.toUpperCase()}` : leaderTitle.toUpperCase()), '', '',
       'TRƯỞNG PHÒNG TC - KT', '', '',
-      'CHỦ TỊCH HỘI ĐỒNG / GIÁM ĐỐC'
+      'CHỦ TỊCH HỘI ĐỒNG'
     ]);
     sigTitleRow.font = { name: 'Times New Roman', size: 10, bold: true };
     sheet.mergeCells(`A${sigTitleRow.number}:C${sigTitleRow.number}`);
@@ -534,7 +537,7 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
     sheet.addRow([]);
 
     const sigNamesRow = sheet.addRow([
-      reporterNames.split('\n')[0] || '- Mai Thị Tính', '', '',
+      reporterNames.split('\n')[0] || '- Trần Văn Vũ', '', '',
       leaderName, '', '',
       tcktName, '', '',
       directorName
@@ -554,9 +557,9 @@ router.get('/c53-hd', requireAuth, async (req: any, res) => {
       sheet.mergeCells(`A${memRow.number}:C${memRow.number}`);
     });
 
-    const filePrefix = dept ? dept.code : managingUnit || 'CDC';
+    const filePrefix = dept ? dept.code : (isCntt ? 'CNTT' : managingUnit || 'CDC');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=BienBan_KiemKe_C53_HD_${filePrefix}_2026.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=BienBan_KiemKe_${filePrefix}_2026.xlsx`);
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
