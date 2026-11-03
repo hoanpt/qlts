@@ -31,8 +31,8 @@ export async function syncCnttRecords(prisma: PrismaClient, force: boolean = fal
     }
   });
 
-  if (!force && badAssetCount === 0 && currentCnttCount === 880) {
-    console.log('[CNTT Sync] CNTT assets are already clean and up-to-date (880 assets). No sync needed.');
+  if (!force && badAssetCount === 0 && currentCnttCount === 675) {
+    console.log('[CNTT Sync] CNTT assets are already clean and up-to-date (675 assets). No sync needed.');
     return { ok: true, synced: 0, message: 'Already up to date' };
   }
 
